@@ -1,0 +1,158 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "MailBeast API",
+  "description": "Task-shaped REST API for cold email at scale - campaigns, leads, deliverability, verification and lead discovery.",
+  "colors": {
+    "primary": "#2F62E8",
+    "light": "#5D8DF6",
+    "dark": "#1E46B0"
+  },
+  "favicon": "/favicon.png",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication",
+              "idempotency"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "lead-finder",
+              "accounts",
+              "campaigns",
+              "emails",
+              "leads",
+              "workspace",
+              "analytics"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Lead Finder",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /v1/lead-searches",
+              "GET /v1/lead-searches/{id}"
+            ]
+          },
+          {
+            "group": "Email Accounts",
+            "openapi": "openapi.json",
+            "pages": [
+              "POST /v1/accounts",
+              "GET /v1/accounts",
+              "GET /v1/accounts/{id}",
+              "PATCH /v1/accounts/{id}",
+              "DELETE /v1/accounts/{id}",
+              "POST /v1/accounts/bulk",
+              "GET /v1/accounts/{id}/verification",
+              "POST /v1/accounts/{id}/pause",
+              "POST /v1/accounts/{id}/resume",
+              "POST /v1/accounts/oauth/{provider}/init",
+              "GET /v1/accounts/oauth/{provider}/status"
+            ]
+          },
+          {
+            "group": "Campaigns",
+            "openapi": "openapi.json",
+            "pages": [
+              "POST /v1/campaigns",
+              "POST /v1/campaigns/{id}/start",
+              "POST /v1/campaigns/{id}/pause",
+              "POST /v1/campaigns/{id}/resume",
+              "POST /v1/campaigns/{id}/test-email",
+              "GET /v1/campaigns",
+              "GET /v1/campaigns/{id}",
+              "PATCH /v1/campaigns/{id}",
+              "DELETE /v1/campaigns/{id}",
+              "GET /v1/campaigns/{id}/status"
+            ]
+          },
+          {
+            "group": "Emails",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /v1/emails",
+              "GET /v1/emails/{id}",
+              "DELETE /v1/emails/{id}",
+              "POST /v1/emails/{id}/reply",
+              "POST /v1/emails/{id}/forward",
+              "GET /v1/emails/unread/count",
+              "POST /v1/threads/{id}/read"
+            ]
+          },
+          {
+            "group": "Leads",
+            "openapi": "openapi.json",
+            "pages": [
+              "POST /v1/campaigns/{cid}/leads",
+              "GET /v1/campaigns/{cid}/leads",
+              "GET /v1/campaigns/{cid}/leads/{leadId}",
+              "PATCH /v1/campaigns/{cid}/leads/{leadId}",
+              "DELETE /v1/campaigns/{cid}/leads/{leadId}",
+              "POST /v1/campaigns/{cid}/leads/mutate",
+              "GET /v1/leads/search"
+            ]
+          },
+          {
+            "group": "API Keys",
+            "openapi": "openapi.json",
+            "pages": [
+              "POST /v1/api-keys",
+              "GET /v1/api-keys",
+              "DELETE /v1/api-keys/{id}"
+            ]
+          },
+          {
+            "group": "Workspace",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /v1/usage",
+              "GET /v1/usage/{limitType}",
+              "GET /v1/account/subscription",
+              "GET /v1/workspace"
+            ]
+          },
+          {
+            "group": "Analytics",
+            "openapi": "openapi.json",
+            "pages": [
+              "GET /v1/campaigns/{id}/analytics",
+              "GET /v1/campaigns/{id}/analytics/timeseries",
+              "GET /v1/campaigns/analytics/overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://app.mailbeast.ai"
+    }
+  },
+  "footer": {
+    "socials": {
+      "website": "https://mailbeast.ai"
+    }
+  }
+}

@@ -1,0 +1,72 @@
+---
+title: Idempotency
+description: Retry writes safely - 24h response replay, plus durable dedup for quota and leads.
+---
+
+Network calls fail in ambiguous ways - a request times out, but you can't tell
+whether the server processed it. Sending an `Idempotency-Key` lets you retry
+safely: within a 24-hour window the API replays the original response instead of
+running the operation again.
+
+Send the header on any mutating request (`POST`, `PATCH`, `DELETE`). If you retry
+with the **same key**, you get the original response back:
+
+```bash
+curl https://api.mailbeast.ai/v1/campaigns \
+  -H "Authorization: Bearer mb_live_…" \
+  -H "Idempotency-Key: a1b2c3d4-e5f6-7890-abcd-ef1234567890" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "Q3 outreach" }'
+```
+
+Retry that request within the window and the second call returns the same body
+with an extra header instead of creating another campaign:
+
+```
+X-Idempotency-Replayed: true
+```
+
+<Note>
+Idempotency is **opt-in**. A request with no `Idempotency-Key` header behaves
+normally - nothing is cached and every call runs. Reads (`GET`) are already
+idempotent and ignore the header.
+</Note>
+
+## How it works
+
+- **Generate a unique key per operation** - a UUID is ideal. Use one key for one
+  logical write, and reuse it only when retrying that same write.
+- **Keys are scoped to your workspace** - a key you use never collides with
+  another workspace's, and the scope is derived server-side from your API key.
+- **Only successful (`2xx`) responses are cached.** If the first attempt failed,
+  retrying with the same key genuinely re-runs the operation.
+
+<Note>
+**Exception - creating an API key is *not* idempotent.** Its response contains a
+one-time token that is never stored in retrievable form, so it cannot be replayed.
+An `Idempotency-Key` on `POST /v1/api-keys` is ignored, and a retry mints a **new**
+key - revoke any extras from the [list endpoint](/api-reference/api-keys/list-api-keys).
+</Note>
+
+## Edge cases
+
+| Situation | Result |
+| --- | --- |
+| Same key, **same** body | Original response replayed (`X-Idempotency-Replayed: true`) |
+| Same key, **different** body | `422` - the key is already bound to a different request |
+| Same key, two requests **in flight** at once | The second returns `409` while the first is still processing |
+| Key longer than 255 characters | `400` |
+
+A `422` from a body mismatch looks like this:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "idempotency_key_reused",
+    "message": "Idempotency-Key already used with a different request body.",
+    "status": 422,
+    "requestId": "…"
+  }
+}
+```

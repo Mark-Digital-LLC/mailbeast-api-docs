@@ -1,0 +1,125 @@
+---
+title: Leads
+description: Add, read, update and bulk-manage a campaign's leads.
+---
+
+Leads live under a campaign. Add them, sync their state to your CRM, and manage
+them in bulk. Adding leads counts toward your monthly-imports quota.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| List / get / search leads | `leads:read` |
+| Add / update / delete / bulk-mutate | `leads:write` |
+
+## Add leads
+
+Add 1-100 leads in one call. Each is **deduplicated by email** within the
+campaign and provider-detected. The response summarizes the outcome and returns
+the leads that were created.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{cid}/leads \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "leads": [
+      { "email": "jane@acme.com", "firstName": "Jane", "companyName": "Acme",
+        "tags": ["vip"], "customFields": { "industry": "SaaS" } },
+      { "email": "sam@globex.com", "firstName": "Sam" }
+    ]
+  }'
+```
+
+```json Response
+{
+  "summary": { "submitted": 2, "created": 2, "duplicates": 0, "invalid": 0 },
+  "leads": [ { "id": "…", "email": "jane@acme.com", "status": "not_contacted", "…": "…" } ]
+}
+```
+
+## List and filter
+
+**Cursor-paginated**, newest-first, and stable under concurrent inserts/deletes -
+the right shape for syncing leads to a CRM (offset pages would skip or duplicate
+rows as leads change).
+
+```bash
+# first page
+curl "https://api.mailbeast.ai/v1/campaigns/{cid}/leads?limit=50&status=lead_replied_interested" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+
+# next page - pass the previous response's meta.nextCursor
+curl "https://api.mailbeast.ai/v1/campaigns/{cid}/leads?limit=50&cursor=eyJ0cyI6IjIwMjYtMDctMDJUMDA6MDA6MDAuMDAwWiIsImlkIjoiM2YxYzJiN2UtOWE0ZC00ZTE4LWIyYzEtNmQ4ZjVhMGU3YzkzIn0" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json Response
+{
+  "data": [ { "id": "…", "email": "jane@acme.com", "…": "…" } ],
+  "meta": { "hasMore": true, "nextCursor": "eyJ0cyI6IjIwMjYtMDctMDJUMDA6MDA6MDAuMDAwWiIsImlkIjoiM2YxYzJiN2UtOWE0ZC00ZTE4LWIyYzEtNmQ4ZjVhMGU3YzkzIn0" }
+}
+```
+
+Filter by `status`, `tags`, or `search` (email / name / company). Keep requesting
+with `?cursor=meta.nextCursor` until `meta.hasMore` is `false` (then `nextCursor`
+is `null`). `limit` defaults to 50 (max 250).
+
+## Get one lead
+
+Returns the lead plus **live sequence progress** (steps sent/planned, next send).
+
+```bash
+curl https://api.mailbeast.ai/v1/campaigns/{cid}/leads/{leadId} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+## Update a lead
+
+```bash
+curl -X PATCH https://api.mailbeast.ai/v1/campaigns/{cid}/leads/{leadId} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "firstName": "Janet", "customFields": { "tier": "gold" } }'
+```
+
+<Note>
+Changing a lead's **email** safely re-runs the add / dedup / provider-detect
+pipeline, and is only allowed while the lead has not been contacted.
+</Note>
+
+## Bulk mutate
+
+One operation over an id list - `set_status`, `add_tags`, `remove_tags`, or
+`delete`. `delete` also accepts a `filter` instead of ids.
+
+```bash
+# add a tag to specific leads
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{cid}/leads/mutate \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "operation": "add_tags", "ids": ["…", "…"], "tags": ["hot"] }'
+
+# delete every lead matching a filter
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{cid}/leads/mutate \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "operation": "delete", "filter": { "status": "lead_replied_unsubscribed" } }'
+
+# delete EVERY lead - explicit opt-in (an empty filter will NOT do this)
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{cid}/leads/mutate \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "operation": "delete", "all": true }'
+```
+
+## Search across campaigns
+
+Find a lead by email across every campaign in the workspace - one row per
+campaign the email appears in.
+
+```bash
+curl "https://api.mailbeast.ai/v1/leads/search?email=jane@acme.com" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```

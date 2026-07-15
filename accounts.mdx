@@ -1,0 +1,182 @@
+---
+title: Email Accounts
+description: Connect and manage the sending mailboxes your campaigns send from.
+---
+
+Email accounts are the sending mailboxes your campaigns use. Connect them two ways:
+
+- **SMTP/IMAP.** Any provider, including Gmail and Outlook using an
+  [app password](https://support.google.com/mail/answer/185833) (host
+  `smtp.gmail.com` / `imap.gmail.com`, etc.). See [Connect a mailbox](#connect-a-mailbox).
+- **Native OAuth.** Google Workspace and Microsoft, with tokens refreshed for you. See
+  [Connect Google / Microsoft over OAuth](#connect-google-microsoft-over-oauth).
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| Read mailboxes and verification status | `accounts:read` |
+| Connect, update, pause / resume, delete | `accounts:write` |
+
+## Connect a mailbox
+
+`POST /v1/accounts` connects one mailbox or up to 50. Each is handled
+**independently**, so the response tells you which connected and which failed (for
+example, an email already connected to another workspace).
+
+<Note>
+  A new mailbox starts out unverified and is checked automatically. Poll
+  `verification.overallStatus` (or `status`) to know when it is ready to send.
+</Note>
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/accounts \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "accounts": [
+      {
+        "emailAddress": "jane@acme.com",
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "smtpHost": "smtp.acme.com",
+        "smtpPort": 587,
+        "smtpUsername": "jane@acme.com",
+        "smtpPassword": "•••",
+        "imapHost": "imap.acme.com",
+        "imapPort": 993,
+        "imapUsername": "jane@acme.com",
+        "imapPassword": "•••"
+      }
+    ]
+  }'
+```
+
+```json Response
+{
+  "summary": { "submitted": 1, "created": 1, "failed": 0 },
+  "accounts": [
+    {
+      "id": "…",
+      "emailAddress": "jane@acme.com",
+      "status": "inactive",
+      "healthScore": 100,
+      "smtp": { "host": "smtp.acme.com", "port": 587, "username": "jane@acme.com" },
+      "verification": { "overallStatus": "pending", "smtp": "inactive", "imap": "not_checked",
+        "dns": { "mx": "pending", "spf": "pending", "dkim": "pending", "dmarc": "pending" } }
+    }
+  ],
+  "errors": []
+}
+```
+
+## Connect Google / Microsoft over OAuth
+
+For a native Google Workspace or Microsoft mailbox (managed token refresh, no app
+password), use the OAuth flow. It's a three-step handshake because a person has to
+grant consent in a browser:
+
+<Steps>
+<Step title="Start the connection">
+`POST /v1/accounts/oauth/{google|microsoft}/init` returns a consent URL and a `state` handle.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/accounts/oauth/google/init \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+# → { "authorizationUrl": "https://accounts.google.com/o/oauth2/v2/auth?…",
+#     "state": "…", "expiresInSeconds": 600 }
+```
+</Step>
+<Step title="Send the mailbox owner to the consent URL">
+Open `authorizationUrl` in a browser. After they grant access, the provider
+redirects back to MailBeast, which exchanges the code and connects the mailbox.
+</Step>
+<Step title="Poll for the result">
+`GET /v1/accounts/oauth/{provider}/status?state=…` returns `pending`, then
+`connected` (with the new `accountId`) or `failed`.
+
+```bash
+curl "https://api.mailbeast.ai/v1/accounts/oauth/google/status?state=…" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+# → { "status": "connected", "accountId": "…", "error": null }
+```
+</Step>
+</Steps>
+
+<Note>
+The `state` is valid for 10 minutes; once it resolves, the result stays pollable
+for 30 minutes after.
+Like any new mailbox it is verified automatically and flips to `active` once verification
+passes (expect `inactive` / `checking` briefly right after connecting).
+</Note>
+
+## List, get, update
+
+`GET /v1/accounts` is **cursor-paginated**, newest-first, and filterable by
+`status` (`active`, `inactive`, `checking`, `failed`, `revoked`) and by
+[`tags`](#tags). Keep requesting with `?cursor=meta.nextCursor` until
+`meta.hasMore` is `false`.
+
+`PATCH /v1/accounts/{id}` updates settings/limits **and** rotates credentials in
+one call. `emailAddress` is immutable. Any `smtp*` / `imap*` field present rotates
+the credentials and re-runs verification.
+
+```bash
+# raise the daily cap and rotate the SMTP password (triggers re-verification)
+curl -X PATCH https://api.mailbeast.ai/v1/accounts/{id} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "maxEmailsPerDay": 60, "smtpPassword": "•••" }'
+```
+
+`POST /v1/accounts/bulk` applies **one** settings `patch` **or** one `status`
+change (`active` / `inactive`) across many ids. The two are mutually exclusive.
+
+## Check verification
+
+Mailboxes are verified for you: when you connect one, when you rotate its
+credentials, when you `resume` a failed one, and periodically after that. Read
+the latest result at any time:
+
+```bash
+curl https://api.mailbeast.ai/v1/accounts/{id}/verification \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json Verification result
+{
+  "overallStatus": "verified",
+  "smtp": { "status": "verified", "error": null },
+  "imap": { "status": "verified", "error": null },
+  "dns": {
+    "mx":   { "status": "verified", "error": null },
+    "spf":  { "status": "failed",   "error": "No SPF record found" },
+    "dkim": { "status": "verified", "error": null },
+    "dmarc":{ "status": "verified", "error": null },
+    "a":    { "status": "verified", "error": null }
+  },
+  "lastVerifiedAt": "2026-07-02T00:00:00.000Z"
+}
+```
+
+## Pause and resume
+
+Pause sending on a mailbox (for a suspected deliverability issue, say) and resume
+it later. A paused mailbox reports `status: "inactive"` and stays that way until
+you resume it - campaigns and warmup both skip it, and nothing re-activates it on
+its own.
+
+```bash
+# pause (only an active mailbox can be paused; 400 otherwise). No body.
+curl -X POST https://api.mailbeast.ai/v1/accounts/{id}/pause \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+
+# resume
+curl -X POST https://api.mailbeast.ai/v1/accounts/{id}/resume \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+## Delete a mailbox
+
+Delete a mailbox with `DELETE /v1/accounts/{id}`. Sending from it stops
+immediately.

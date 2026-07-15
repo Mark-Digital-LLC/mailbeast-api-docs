@@ -1,0 +1,33 @@
+---
+title: Overview
+description: One API for the full local lead-gen & cold-outreach loop.
+---
+
+The MailBeast API is a **task-shaped** REST API: each endpoint maps to a job you
+actually do - connect a mailbox, launch a campaign, load leads, read replies, discover new leads - not to an internal database table.
+
+<CardGroup cols={2}>
+  <Card title="Base URL" icon="link">
+    `https://api.mailbeast.ai`
+  </Card>
+  <Card title="Auth" icon="key">
+    `Authorization: Bearer mb_live…`
+  </Card>
+</CardGroup>
+
+## Design principles
+
+These principles shape every endpoint as it ships:
+
+- **Composites over ceremony.** Create a fully-configured, optionally-live
+  campaign in **one** call instead of six.
+- **One-or-many bodies.** Ingest endpoints accept a single object *or* an array
+  of the same shape.
+- **Cursor pagination** on every list. **Least-privilege scopes** on every route.
+- **One error envelope** everywhere: `{ "error": { "type", "code", "message", "status", "requestId" } }`,
+  plus an optional `details[]` on validation errors and `retryAfter` on `429`s.
+
+
+<Card title="Get started" icon="rectangle-terminal" href="/quickstart">
+  Create a key and make your first authenticated call in two steps.
+</Card>

@@ -1,0 +1,43 @@
+---
+title: Quickstart
+description: From zero to your first authenticated call in two steps.
+---
+
+<Steps>
+  <Step title="Create a key">
+    In the dashboard, open [**Settings → API Keys**](https://app.mailbeast.ai/settings/api), click **Create API key**,
+    include the **`apikeys:manage`** scope (plus any scopes you want to delegate,
+    e.g. `campaigns:read`), and copy the secret - it is shown only once.
+  </Step>
+  <Step title="Confirm it works">
+    List the keys in your workspace. A `200` with your key in the response
+    confirms the token and scope are resolved correctly.
+
+    ```bash
+    curl https://api.mailbeast.ai/v1/api-keys \
+      -H "Authorization: Bearer $MAILBEAST_API_KEY"
+    ```
+
+    ```json Response
+    {
+      "data": [
+        {
+          "id": "b6fd2c26-…",
+          "name": "Bootstrap",
+          "keyPrefix": "mb_live_7Fq2Ka9Lm3Xb0ZpH_••••",
+          "scopes": ["apikeys:manage", "campaigns:read"],
+          "environment": "live",
+          "lastUsedAt": null,
+          "expiresAt": null,
+          "revokedAt": null,
+          "createdAt": "2026-07-11T09:12:04.000Z"
+        }
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+For security reasons, the API key will be displayed only once, and there is no way to recover it if you lose it.
+</Warning>

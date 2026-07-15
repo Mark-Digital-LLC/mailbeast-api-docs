@@ -1,0 +1,185 @@
+---
+title: Emails
+description: Read the replies your campaigns get, and answer them.
+---
+
+Emails are flat: one object per message, across every mailbox you have connected.
+Conversations are not fetched as a whole. Instead, `threadId` ties messages
+together, and you can ask for just the newest message of each conversation.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| List and read emails | `emails:read` |
+| Delete an email, mark a thread read | `emails:write` |
+| Reply and forward | `emails:send` |
+
+<Note>
+**List results never include the message body.** They carry a `snippet` preview
+instead, which keeps paging fast no matter how large the messages are. Fetch a
+single email when you need to read it.
+</Note>
+
+## List emails
+
+`GET /v1/emails` is cursor-paginated, newest first. Keep requesting with
+`?cursor=meta.nextCursor` until `meta.hasMore` is `false`.
+
+```bash
+# unread replies from one mailbox
+curl -G https://api.mailbeast.ai/v1/emails \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -d mailbox=jane@acme.com \
+  -d type=received \
+  -d isUnread=true
+```
+
+```json Response
+{
+  "data": [
+    {
+      "id": "8c5a1e07-2b93-4d6f-a0e8-7c4b9d1f2a36",
+      "threadId": "13a265fd-f0f2-b1d1-d6fc-154e483183e7",
+      "messageId": "<CAF=abc123@mail.gmail.com>",
+      "mailbox": { "id": "3f1c2b7e-9a4d-4c8e-b1f6-5d2a7e0c3b94", "email": "jane@acme.com" },
+      "from": { "email": "john@prospect.io", "name": "John Carter" },
+      "to": ["jane@acme.com"],
+      "cc": [],
+      "bcc": [],
+      "subject": "Re: Pricing question",
+      "snippet": "Thanks for the details, this works for us.",
+      "isUnread": true,
+      "type": "received",
+      "campaignId": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
+      "leadId": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31",
+      "hasAttachments": false,
+      "receivedAt": "2026-07-13T09:24:11.000Z",
+      "sentAt": null
+    }
+  ],
+  "meta": { "hasMore": false, "nextCursor": null }
+}
+```
+
+Filters combine freely: `mailbox` (comma-separated addresses), `campaignId`,
+`threadId`, `leadId`, `isUnread`, `type` (`sent` or `received`),
+`folder` (`inbox`, `untracked`, `important`, `snoozed`, or `archived`), `since`,
+`until`, and `search`.
+
+`search` is full text over subject, preview text and sender address. Quoted
+phrases, `OR` and `-exclude` all work.
+
+### Conversations without fetching them
+
+Pass `latestOfThread=true` to get one email per conversation. That gives you a
+conversation-style view at the cost of an ordinary list.
+
+```bash
+curl -G https://api.mailbeast.ai/v1/emails \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -d latestOfThread=true -d limit=25
+```
+
+Your other filters are applied **first**, and the newest email that survives them
+is the one you get back. So this returns the last message each contact sent you –
+including in conversations you have already answered, where the newest message in
+the thread is your own reply:
+
+```bash
+curl -G https://api.mailbeast.ai/v1/emails \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -d latestOfThread=true -d type=received
+```
+
+An email that belongs to no conversation is a conversation of one, and is always
+kept.
+
+To open one conversation, list its messages with `?threadId=...`.
+
+## Read one email
+
+`GET /v1/emails/{id}` is the only endpoint that returns the body.
+
+```bash
+curl https://api.mailbeast.ai/v1/emails/{id} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+It returns the same object as the list, plus:
+
+```json
+{
+  "body": {
+    "html": "<p>Thanks for the details, this works for us.</p>",
+    "text": "Thanks for the details, this works for us."
+  }
+}
+```
+
+## Reply and forward
+
+`POST /v1/emails/{id}/reply` answers in the conversation the email belongs to.
+You supply the body; the sender and the recipient are decided for you. The reply
+goes out from the mailbox that owns the conversation and is addressed to the
+other party, so a reply can never turn into a message to someone else.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/emails/{id}/reply \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "body": { "text": "Happy to set up a call. Does Thursday work?" },
+    "cc": ["cto@acme.com"]
+  }'
+```
+
+```json Response
+{
+  "id": "5e9a3c81-7d24-4b60-9f13-8a6c2e0d4b57",
+  "threadId": "13a265fd-f0f2-b1d1-d6fc-154e483183e7",
+  "status": "queued"
+}
+```
+
+`POST /v1/emails/{id}/forward` sends the message on to recipients you choose,
+with the original quoted below your note. It also goes out from the mailbox that
+owns the conversation.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/emails/{id}/forward \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "to": ["colleague@acme.com"], "body": { "text": "FYI, worth a look." } }'
+```
+
+### Recipients you add are checked against your blocklist
+
+Anyone you name yourself – `cc` and `bcc` on a reply, `to`, `cc` and `bcc` on a
+forward – is checked against your workspace blocklist. If one of them is on it, the whole request is refused with
+`400` and nothing is sent; the message names every blocked address, so you can
+fix the list in one pass.
+
+## Read state
+
+`isUnread` on an email means "this message arrived after the last time its
+conversation was read". A conversation can therefore hold both read and unread
+messages at once, which is exactly what you want when polling: it tells you which
+replies are new, not merely which conversations have something new in them.
+
+You **read** that state per email, and you **clear** it per conversation.
+
+`POST /v1/threads/{id}/read` marks every email in a conversation as read. It is
+the only write there is for read state, and it is the same action a person takes
+by opening the conversation in the dashboard, so what you do through the API and
+what your team sees stay in step.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/threads/{id}/read \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+## Delete an email
+
+`DELETE /v1/emails/{id}` removes an email from your inbox. It stops appearing in
+listings. The copy on the mail server is left alone.

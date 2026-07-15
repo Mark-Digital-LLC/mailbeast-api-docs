@@ -1,0 +1,115 @@
+---
+title: Workspace & Usage
+description: Read your limits, subscription, and plan - know what's left before you hit a limit.
+---
+
+These endpoints let you read your own limits, subscription, and plan. They're all
+read-only. Use them to see how much you have left **before** a request would hit a
+plan limit (`402`) or the rate limit (`429`) - so nothing catches you off guard.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| Read usage, subscription, and workspace | `usage:read` |
+
+## Check your usage before you spend
+
+`GET /v1/usage` returns how much you've used and have left, grouped by product.
+Email Outreach and Lead Finder are separate products, so each is reported on its
+own - your Email Outreach plan limits and your Lead Finder credit balance.
+
+```bash
+curl https://api.mailbeast.ai/v1/usage \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json
+{
+  "emailOutreach": {
+    "planName": "pro",
+    "limits": [
+      { "limitType": "monthly_emails",  "used": 1240, "limit": 100000, "remaining": 98760, "isUnlimited": false, "usagePercentage": 1.24 },
+      { "limitType": "active_contacts", "used": 5000, "limit": 25000,  "remaining": 20000, "isUnlimited": false, "usagePercentage": 20 }
+    ]
+  },
+  "leadFinder": {
+    "credits": { "limitType": "lead_finder_credits", "used": 0, "limit": 500, "remaining": 500, "isUnlimited": false, "usagePercentage": 0 }
+  }
+}
+```
+
+<Tip>
+Before a large lead import or a send, read the relevant limit and only proceed
+while `remaining` is comfortable. This turns a `402` from a surprise into a
+decision you control.
+</Tip>
+
+## Subscription: everything you pay for, in one place
+
+`GET /v1/account/subscription` groups your billing by product. **Email Outreach**
+and **Lead Finder** are independent subscriptions, each with its own billing cycle
+and renewal date.
+
+```bash
+curl https://api.mailbeast.ai/v1/account/subscription \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json
+{
+  "emailOutreach": {
+    "planName": "pro",
+    "status": "active",
+    "billingInterval": "monthly",
+    "currentPeriodEnd": "2026-08-01T00:00:00.000Z",
+    "cancelAtPeriodEnd": false,
+    "trial": null,
+    "addons": {
+      "contacts": 20000,
+      "monthlyEmails": 10000,
+      "aiCredits": 5000,
+      "emailValidation": 0
+    }
+  },
+  "leadFinder": {
+    "tier": "pro",
+    "status": "active",
+    "billingInterval": "annual",
+    "currentPeriodEnd": "2027-02-01T00:00:00.000Z",
+    "cancelAtPeriodEnd": false
+  }
+}
+```
+
+- **Your Email Outreach status** - `active`, `on_hold`, or `inactive` when you have
+  no active subscription (for example, on the free plan).
+- **`currentPeriodEnd`** - when each product's current paid period ends. It renews
+  then, or ends if `cancelAtPeriodEnd` is `true`, and is `null` when there's no
+  active subscription. Each product has its own, so they can differ.
+- **Your Email Outreach add-ons** - the extra capacity you've purchased, in units.
+  They're already folded into the caps in `GET /v1/usage`, so this is just the
+  breakdown. `null` when you have no add-ons, and while the plan is on hold, since
+  the extra capacity isn't active then either.
+- **Your Lead Finder subscription** - billed separately from Email Outreach.
+  `null` if you don't have one. The Lead Finder credit balance itself lives in
+  `GET /v1/usage` under `leadFinder.credits`.
+
+## Workspace identity
+
+`GET /v1/workspace` returns the workspace resolved from your key: org name and
+timezone. Your plan lives in [`GET /v1/usage`](#check-your-usage-before-you-spend)
+and [`GET /v1/account/subscription`](#subscription-everything-you-pay-for-in-one-place).
+
+```bash
+curl https://api.mailbeast.ai/v1/workspace \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json
+{
+  "organizationId": "…",
+  "name": "Acme Inc",
+  "timezone": "America/New_York"
+}
+```

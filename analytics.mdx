@@ -1,0 +1,175 @@
+---
+title: Analytics
+description: Engagement reporting – per campaign, over time, and across the workspace.
+---
+
+Three endpoints cover reporting: one campaign's totals, one campaign over time, and a
+workspace-wide roll-up. They all draw from the same source as your dashboard, so the
+numbers you get here match the ones you see there.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| Read any analytics | `metrics:read` |
+
+## Campaign analytics
+
+```bash
+curl "https://api.mailbeast.ai/v1/campaigns/{id}/analytics?startDate=2026-06-01T00:00:00Z" \
+  -H "Authorization: Bearer mb_live_..."
+```
+
+`opens` and `clicks` come in **two cardinalities**:
+
+- `total` – counted **per email**, bots excluded. The same email opened five times counts
+  once; opening two different steps counts twice.
+- `uniqueLeads` – distinct leads who did it at least once.
+
+Rates are computed from `uniqueLeads`, which is why a single enthusiastic reader cannot
+push your open rate above 100%.
+
+`replies` is a flat number – distinct leads who replied. There is no raw reply-event
+count, so it is deliberately not dressed up as two cardinalities.
+
+```json
+{
+  "totals": {
+    "sent": 1200,
+    "failed": 8,
+    "delivered": 1186,
+    "leadsContacted": 640,
+    "opens":   { "total": 240, "uniqueLeads": 180 },
+    "clicks":  { "total": 31,  "uniqueLeads": 24 },
+    "replies": 26,
+    "bounces": 14,
+    "unsubscribed": 5,
+    "positiveLeads": 21,
+    "conversions": 6,
+    "conversionValue": 18000,
+    "rates": { "open": 28.1, "click": 3.7, "reply": 4.0, "bounce": 1.1, "delivery": 98.8, "unsubscribe": 0.4, "conversion": 0.9 }
+  }
+}
+```
+
+<Note>
+**A rate of `null` means "no denominator", not "zero percent".** A campaign that has not
+sent anything yet returns `"open": null` – not `0`. If we returned `0`, a chart would
+show your open rate collapsing to zero on days you simply weren't sending. Check for
+`null` before plotting.
+</Note>
+
+### Out-of-office replies
+
+`replies` counts distinct leads who replied. Pass `excludeOOO=true` to exclude
+out-of-office auto-replies and count only replies from humans:
+
+```bash
+curl ".../analytics?excludeOOO=true" -H "Authorization: Bearer mb_live_..."
+```
+
+<Warning>
+This is not a cosmetic switch. Out-of-office replies can inflate reply rate noticeably,
+and they inflate it *unevenly* across campaigns – a campaign that happened to run over a
+holiday looks better than it was. Pick one setting and use it consistently when you
+compare campaigns.
+</Warning>
+
+## Breakdowns
+
+Ask for extra detail with `breakdown`. Repeat the parameter or pass a comma-separated
+list. Each breakdown is a separate query, so request only what you will actually read.
+
+```bash
+curl ".../analytics?breakdown=sequence,bounce" -H "Authorization: Bearer mb_live_..."
+```
+
+| Value | Adds | Answers |
+| --- | --- | --- |
+| `smtp` | `bySmtp[]` | Which mailbox is carrying the campaign – and which one is dragging it down. |
+| `sequence` | `bySequence[]` | Per step **and** per A/B variant. Which follow-up actually earns the replies. |
+| `bounce` | `bounceBreakdown` | Hard vs soft, plus the reason. |
+
+### Bounce breakdown
+
+Most outreach APIs give you a single `bounced` number. That number cannot tell you what
+to *do*. This one can:
+
+```json
+{
+  "bounceBreakdown": {
+    "total": 14,
+    "hard": 9,
+    "soft": 5,
+    "senderBounces": 3,
+    "recipientBounces": 11,
+    "unknownBounces": 0,
+    "byCategory": [
+      { "category": "invalid-mailbox", "label": "Invalid mailbox", "type": "recipient", "count": 9, "percentage": 64.3 }
+    ]
+  }
+}
+```
+
+`recipientBounces` are their problem – the address is dead, so clean your list.
+`senderBounces` are **yours** – reputation, authentication, or content got you refused.
+Scrubbing your list will not fix those, and treating them as one number is how a
+deliverability problem hides behind a "normal" bounce rate.
+
+## Over time
+
+```bash
+curl ".../analytics/timeseries?startDate=2026-06-01T00:00:00Z&interval=day" \
+  -H "Authorization: Bearer mb_live_..."
+```
+
+Each point carries `sent`, `delivered`, `opens`, `clicks`, `replies`, **`bounces`** and
+**`unsubscribed`** – so bounce rate and unsubscribe rate over time are chartable directly,
+without a second call.
+
+`interval` accepts `day`, `week` or `month`. Long windows are automatically coarsened to
+keep the series readable; the response echoes the `interval` it actually used, which may
+be coarser than the one you asked for. Read it back rather than assuming.
+
+## Workspace roll-up
+
+```bash
+curl "https://api.mailbeast.ai/v1/campaigns/analytics/overview" \
+  -H "Authorization: Bearer mb_live_..."
+```
+
+Totals across every campaign, plus `activeCampaigns`, `sendingAccounts`, and the
+highest-volume campaigns. Use it for a top-level view, then drill into a campaign.
+
+## Reporting windows and retention
+
+`startDate` and `endDate` are ISO-8601. Passing only `startDate` means "from then until
+now".
+
+Your plan retains a fixed window of history. If you ask for a start date older than that,
+the window is moved forward and the response **tells you**:
+
+```json
+{
+  "period": {
+    "start": "2026-04-16T00:00:00.000Z",
+    "end": "2026-07-15T00:00:00.000Z",
+    "clamped": true,
+    "retentionDays": 90
+  }
+}
+```
+
+<Warning>
+When `clamped` is `true`, the data is real but the window is **shorter than you asked
+for**. Do not label such a result "all time" – check `clamped` before you do.
+</Warning>
+
+## What this API does not report
+
+These are deliberately absent rather than silently zero:
+
+- **Spam-complaint rate.** We do not ingest feedback loops, so we cannot count complaints.
+  Returning `0` would read as "no complaints" instead of "not measured".
+- **Hourly granularity.** The smallest bucket is a day.
+- **Per-link click-through.** Clicks are counted, but not attributed to individual links.

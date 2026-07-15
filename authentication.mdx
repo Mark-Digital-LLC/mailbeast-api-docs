@@ -1,0 +1,95 @@
+---
+title: Authentication
+description: API keys, scopes, and how the workspace is resolved.
+---
+
+Every request carries an API key as a Bearer token:
+
+```bash
+curl https://api.mailbeast.ai/v1/api-keys \
+  -H "Authorization: Bearer mb_live_7Fq2Ka9Lm3Xb0ZpH_…"
+```
+
+The key identifies **both** the caller and the workspace - you never put an
+organization id in the path. A missing or revoked key returns `401`.
+
+## Scopes
+
+Keys are least-privilege: each carries only the scopes it needs, and every route
+declares the one scope it requires. A key missing a required scope returns `403`.
+
+### Granular scopes
+
+Every scope maps to a live capability - there are no scopes without an endpoint
+behind them.
+
+| Scope | Grants |
+| --- | --- |
+| `campaigns:read` / `campaigns:write` | Read / create &amp; update campaigns |
+| `campaigns:lifecycle` | Start / pause / resume sending (spends quota) |
+| `leads:read` / `leads:write` | Read / ingest campaign leads |
+| `emails:read` / `emails:send` / `emails:write` | Read emails / send replies &amp; forwards (billable) / mark-read &amp; delete |
+| `accounts:read` / `accounts:write` | Read / connect &amp; update sending mailboxes |
+| `metrics:read` | Read campaign &amp; workspace analytics |
+| `leadfinder:read` | Read Lead Finder searches |
+| `usage:read` | Read plan usage, subscription &amp; workspace identity |
+| `apikeys:manage` | Create / list / revoke API keys |
+
+### Wildcard scopes
+
+A key can also hold a wildcard that covers many scopes at once. A route always
+requires a **granular** scope; any wildcard that covers it is accepted just the same.
+
+| Wildcard | Covers |
+| --- | --- |
+| `campaigns:all` / `leads:all` / `emails:all` / `accounts:all` | Every action within that one domain |
+| `all:read` | Every read-only scope, across all domains |
+| `all:all` | Everything - **except** `apikeys:manage` |
+
+For example, a route requiring `emails:read` accepts any of `emails:read`,
+`emails:all`, `all:read`, or `all:all`. `all:read` never covers a write, send, or
+lifecycle scope - those need the matching `*:write` / `*:all` / `all:all`.
+
+<Note>
+`apikeys:manage` is opt-in and **never** covered by any wildcard (not even
+`all:all`). It is grantable only from the dashboard - never delegable through the
+API - and a key holding it can mint only keys whose scopes are a **subset** of its
+own, so there is no privilege escalation.
+</Note>
+
+## Rate limits
+
+The API is rate-limited **per workspace** - the limit is shared across every API
+key in the workspace, so minting extra keys does not raise your ceiling.
+
+| Limit | Window | Scope |
+| --- | --- | --- |
+| **120 requests** | 60 seconds | Per workspace (organization) |
+
+Exceed the limit and you get `429` with a `Retry-After` header (seconds) and the
+standard error envelope:
+
+```json
+{
+  "error": {
+    "type": "rate_limit_error",
+    "code": "rate_limited",
+    "message": "Rate limit exceeded: 120 requests per minute per workspace. Retry in 60s.",
+    "status": 429,
+    "requestId": "…",
+    "retryAfter": 60
+  }
+}
+```
+
+<Tip>
+Watch `X-RateLimit-Remaining` and slow down before you hit `0`. On a `429`, wait
+`Retry-After` seconds before retrying; back off exponentially on repeated hits.
+For bulk lead loads, batch and space your calls rather than firing them all at once.
+</Tip>
+
+## Managing keys
+
+Create your first key in the dashboard ([**Settings → API Keys**](https://app.mailbeast.ai/settings/api)), where the full
+secret is shown **once**. After that you can rotate keys programmatically with
+the [API Keys endpoints](/api-reference/api-keys/list-api-keys) using a key that has `apikeys:manage`.

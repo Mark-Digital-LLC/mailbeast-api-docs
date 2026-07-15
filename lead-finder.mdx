@@ -1,0 +1,64 @@
+---
+title: Lead Finder
+description: List past lead searches and poll a running search's progress.
+---
+
+Lead Finder discovers new companies and leads from a natural-language query. This first
+release exposes the two **reads** you need to follow a search that was started in the
+dashboard: list your past searches, and poll one search's status and progress while it
+runs.
+
+<Note>
+Starting, stopping, and pulling results from a search over the API is coming in a later
+release. For now you create and drive a search in the dashboard, and read its state here.
+</Note>
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| List searches, read one search | `leadfinder:read` |
+
+
+### Pagination
+
+The list is cursor-paginated and stable under concurrent changes. When `meta.hasMore` is
+`true`, pass `meta.nextCursor` back as `?cursor=` to fetch the next page; it is `null` on
+the last page. Cursors are opaque – do not parse or build them by hand.
+
+```bash
+curl "https://api.mailbeast.ai/v1/lead-searches?cursor=eyJ0cyI6..." \
+  -H "Authorization: Bearer mb_live_..."
+```
+
+`limit` defaults to 50 and caps at 100.
+
+## Get one search
+
+```bash
+curl "https://api.mailbeast.ai/v1/lead-searches/{id}" \
+  -H "Authorization: Bearer mb_live_..."
+```
+
+This is the **single poll target** while a search runs. It returns the search's status
+plus live progress counters.
+
+```json
+{
+  "id": "a7d4e2f1-08b3-4c65-9e7a-1b2c3d4e5f60",
+  "query": "dental clinics in Berlin",
+  "status": "processing",
+  "searchMode": "companies",
+  "maxResults": 500,
+  "discoveryFinished": false,
+  "progress": {
+    "companiesFound": 84,
+    "companiesProcessed": 51,
+    "emailsFound": 137
+  },
+  "errorMessage": null,
+  "createdAt": "2026-07-10T12:00:00.000Z",
+  "updatedAt": "2026-07-10T12:15:00.000Z",
+  "completedAt": null
+}
+```

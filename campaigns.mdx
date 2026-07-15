@@ -1,0 +1,220 @@
+---
+title: Campaigns
+description: Create, configure, launch and monitor email campaigns.
+---
+
+A campaign bundles a **schedule**, **settings**, an email **sequence**, the sending
+**accounts**, and its **leads**. The API is task-shaped: you create a
+fully-configured campaign in one call rather than stitching together six.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| Read campaigns and status | `campaigns:read` |
+| Create / update / delete config | `campaigns:write` |
+| Start / pause / resume sending | `campaigns:lifecycle` |
+
+<Note>
+Lifecycle is deliberately a **separate** scope from `campaigns:write`: starting a
+campaign spends send quota and sender reputation. A key with only `campaigns:write`
+can build and edit a campaign but cannot start sending. Creating with
+`launch: true` therefore needs **both** scopes.
+</Note>
+
+## Create a campaign
+
+One call configures everything. The configuration - campaign, schedule, settings,
+sending accounts, and sequence - is **all-or-nothing**: if any part fails
+validation (for example an SMTP account that isn't yours), nothing is created.
+`accounts` must be your workspace's own accounts. `leads` are best-effort and
+summarized in the response. If `launch: true` is set and the campaign can't start,
+the call still returns `201` - the campaign is created as a draft, with
+`launched: false` and a `launchError` explaining why (start it later with
+`POST /v1/campaigns/{id}/start`). Because the response is a success, a retry with
+the same `Idempotency-Key` replays it instead of creating a second draft.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/campaigns \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Q4 Product Launch Outreach",
+    "schedule": {
+      "timezone": "America/New_York",
+      "sendingDays": [1, 2, 3, 4, 5],
+      "sendingMinutesStart": 540,
+      "sendingMinutesEnd": 1020,
+      "dailyLimit": 50
+    },
+    "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true },
+    "sequence": [
+      { "subject": "Quick question about {{companyName}}", "body": "<p>Hi {{firstName}}, …</p>" },
+      { "subject": "Following up", "body": "<p>Just circling back.</p>", "delayDays": 3 }
+    ],
+    "accounts": ["123e4567-e89b-12d3-a456-426614174000"],
+    "leads": ["jane@acme.com", "sam@globex.com"],
+    "launch": false
+  }'
+```
+
+<Note>
+`sendingMinutesStart` / `sendingMinutesEnd` are minutes from midnight in the
+campaign timezone - `540` = 09:00, `1020` = 17:00. Step delays are counted from
+the previous step; the first step sends immediately when a lead enters.
+</Note>
+
+The response returns the created campaign plus a lead-ingest summary:
+
+```json Response
+{
+  "campaign": {
+    "id": "333e9ef7-734d-40b2-9e3f-cbce63411b69",
+    "name": "Q4 Product Launch Outreach",
+    "status": "draft",
+    "schedule": { "timezone": "America/New_York", "dailyLimit": 50, "…": "…" },
+    "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true, "sendAsTextOnly": false },
+    "metrics": { "leadsCount": 2, "sent": 0, "opens": 0, "clicks": 0, "replies": 0 },
+    "sequence": [ { "subject": "Quick question about {{companyName}}", "body": "<p>Hi {{firstName}}, …</p>", "delayDays": 0, "delayHours": 0 } ],
+    "accounts": ["123e4567-e89b-12d3-a456-426614174000"]
+  },
+  "leads": { "submitted": 2, "created": 2, "duplicates": 0, "invalid": 0 },
+  "launched": false
+}
+```
+
+## Launch and control sending
+
+Drive the send lifecycle through explicit routes - `/start`, `/pause`, or `/resume`.
+To end a campaign, pause it (or delete it); completion otherwise happens
+automatically when the end date passes or every lead has been sent.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/start \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+You can also launch at creation time by passing `"launch": true` in the create
+body (requires `campaigns:lifecycle`).
+
+<Note>
+A campaign must have **at least one lead and a sequence** to start. A launch
+attempt without them is rejected `400` on `POST /start`; on create-with-`launch`
+the campaign is still created and returned as a draft (`201`, `launched: false`,
+with a `launchError`).
+</Note>
+
+## Send a test email
+
+Before you launch, send yourself a rendered preview of one step variant, from a
+real mailbox, exactly as a lead would receive it.
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/test-email \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "variantId": "550e8400-e29b-41d4-a716-446655440000",
+    "accountId": "3f1c2b7e-9a4d-4e18-b2c1-6d8f5a0e7c93",
+    "recipient": "you@acme.com",
+    "personalization": "dummy"
+  }'
+```
+
+```json Response
+{ "sent": true, "messageId": "<test-1750000000000-a1b2c3@mailbeast.ai>" }
+```
+
+`personalization` decides where merge variables come from. `dummy` fills them
+with placeholders. `lead` uses a real lead, which you name with `leadId`. There
+is no fallback: asking for `lead` without a `leadId` is rejected, so a test can
+never quietly leak the wrong person's data into an email.
+
+<Note>
+The content is the campaign's own: you cannot supply a body here, so this is not
+a way to send arbitrary mail.
+
+A test goes out from a real mailbox and counts toward **that mailbox's daily
+limit**, but not toward your monthly email quota. It is capped at **12 tests per
+day per workspace** (`429` beyond that).
+
+The recipient must not be blocked in your workspace. A test carries your campaign
+content, so the same do-not-email rules apply to it as to a real send: it is
+refused for anyone on your blacklist, by address or by domain. That list is your
+own instruction not to contact someone, and a test is not an exception to it.
+</Note>
+
+A `400` means something about the request needs changing – the mailbox rejected
+the recipient, for example – and the message says what. If the send fails on our
+side instead, you get a **`503`**: the request was fine, it costs you no quota,
+and retrying shortly is the right move. Distinguishing the two matters if you
+retry automatically: a `400` is worth giving up on, a `503` is not.
+
+## Tags
+
+Every campaign in `GET /v1/campaigns` carries its `tags` – the ones you set in the
+dashboard. The API reads them and lets you filter by them, so "the campaigns for
+client X" is a single call rather than a full page-through.
+
+```bash
+# every campaign, with its tags
+curl https://api.mailbeast.ai/v1/campaigns \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+# → "tags": [ { "id": "8debf023-…", "name": "q4-launch", "color": "#10B981" } ]
+
+# only campaigns carrying at least ONE of these tags (comma-separated ids)
+curl "https://api.mailbeast.ai/v1/campaigns?tags=8debf023-…,1f2e3d4c-…" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+<Note>
+Tags are **created, renamed, and deleted in the dashboard**, not through the API.
+There is no `/v1/tags` resource.
+
+Campaign tags and [mailbox tags](/accounts#tags) are **separate sets**. Two tags with
+the same name on the two pages are different tags, and their ids never cross over: a
+campaign tag id passed to `GET /v1/accounts?tags=` matches nothing.
+</Note>
+
+## Check status
+
+A lightweight poll of live send-state, the schedule window, and headline metrics:
+
+```bash
+curl https://api.mailbeast.ai/v1/campaigns/{id}/status \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+```json Response
+{
+  "id": "333e9ef7-734d-40b2-9e3f-cbce63411b69",
+  "status": "active",
+  "isWithinSchedule": true,
+  "nextScheduleOpensAt": null,
+  "metrics": { "leadsCount": 2, "sent": 2, "opens": 1, "clicks": 0, "replies": 0 }
+}
+```
+
+## Update
+
+`PATCH` touches only the sections you supply. Supplying `accounts` or `sequence`
+**replaces** that section entirely (the sequence is replaced in place - you always
+end up with exactly the steps you sent). A supplied `sequence` must have **at least
+one step** - an empty array is rejected (`400`); omit the field to leave the
+sequence unchanged.
+
+```bash
+curl -X PATCH https://api.mailbeast.ai/v1/campaigns/{id} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "schedule": { "dailyLimit": 100 } }'
+```
+
+<Note>
+Unlike create, `PATCH` applies each supplied section independently - it is not a
+single cross-section transaction, so a later section failing does not roll back an
+earlier one. Send one section at a time if you need to isolate failures. The
+`sequence` of a campaign that is **actively sending** cannot be changed; pause it
+first. Sending `accounts` **can** be updated live - the change takes effect on the
+next sends.
+</Note>
