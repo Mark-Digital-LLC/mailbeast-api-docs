@@ -8139,7 +8139,7 @@
           "customFields": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Custom fields - a flat map of string/number/boolean values. Keys are canonicalized to snake_case; the number of fields per campaign is capped, and each value is length-limited.",
+            "description": "Custom fields - a flat map of string/number/boolean values. Each key must be lowercase letters, digits and underscores, starting with a letter, up to 64 characters (e.g. `fund_manager`); a key outside that form is rejected. The number of fields per campaign is capped, and each value is length-limited.",
             "example": {
               "industry": "SaaS",
               "employees": 120
@@ -8294,7 +8294,7 @@
           "customFields": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Custom fields - keys canonicalized to snake_case; the number of fields per campaign is capped, and each value is length-limited."
+            "description": "Custom fields - each key must be lowercase letters, digits and underscores, starting with a letter, up to 64 characters (e.g. `fund_manager`); a key outside that form is rejected. The number of fields per campaign is capped, and each value is length-limited."
           },
           "customFieldLabels": {
             "type": "object",
