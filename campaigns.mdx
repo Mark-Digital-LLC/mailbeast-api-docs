@@ -171,7 +171,7 @@ curl "https://api.mailbeast.ai/v1/campaigns?tags=8debf023-…,1f2e3d4c-…" \
 Tags are **created, renamed, and deleted in the dashboard**, not through the API.
 There is no `/v1/tags` resource.
 
-Campaign tags and [mailbox tags](/accounts#tags) are **separate sets**. Two tags with
+Campaign tags and mailbox tags are **separate sets**. Two tags with
 the same name on the two pages are different tags, and their ids never cross over: a
 campaign tag id passed to `GET /v1/accounts?tags=` matches nothing.
 </Note>

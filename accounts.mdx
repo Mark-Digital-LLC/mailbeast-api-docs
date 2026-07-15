@@ -114,7 +114,7 @@ passes (expect `inactive` / `checking` briefly right after connecting).
 
 `GET /v1/accounts` is **cursor-paginated**, newest-first, and filterable by
 `status` (`active`, `inactive`, `checking`, `failed`, `revoked`) and by
-[`tags`](#tags). Keep requesting with `?cursor=meta.nextCursor` until
+`tags`. Keep requesting with `?cursor=meta.nextCursor` until
 `meta.hasMore` is `false`.
 
 `PATCH /v1/accounts/{id}` updates settings/limits **and** rotates credentials in
