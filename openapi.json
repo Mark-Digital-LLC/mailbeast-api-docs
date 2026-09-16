@@ -2857,7 +2857,7 @@
     },
     "/v1/campaigns/{id}/resume": {
       "post": {
-        "description": "Resume a paused campaign from where it left off.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "description": "Resume a paused campaign from where it left off. Returns 400 if the workspace has no email account at all; an account that exists but cannot send right now (disconnected, reauthorizing, DNS below the sending floor) does not block the resume.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_resume",
         "parameters": [
           {
