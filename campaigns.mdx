@@ -24,6 +24,12 @@ can build and edit a campaign but cannot start sending. Creating with
 
 ## Create a campaign
 
+<Note>
+A campaign created through the API sends from **all** connected mailboxes of your
+workspace ("use all accounts" mode). `accounts` attaches mailboxes to the campaign,
+but it does not limit which mailboxes send.
+</Note>
+
 One call configures everything. The configuration - campaign, schedule, settings,
 sending accounts, and sequence - is **all-or-nothing**: if any part fails
 validation (for example an SMTP account that isn't yours), nothing is created.
@@ -215,6 +221,6 @@ Unlike create, `PATCH` applies each supplied section independently - it is not a
 single cross-section transaction, so a later section failing does not roll back an
 earlier one. Send one section at a time if you need to isolate failures. The
 `sequence` of a campaign that is **actively sending** cannot be changed; pause it
-first. Sending `accounts` **can** be updated live - the change takes effect on the
-next sends.
+first. `accounts` **can** be updated live, but it does not limit which mailboxes
+send - the campaign sends from all connected mailboxes of the workspace.
 </Note>

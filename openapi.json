@@ -8686,7 +8686,7 @@
             }
           },
           "accounts": {
-            "description": "SMTP account ids to send from.",
+            "description": "SMTP account ids to attach to the campaign. Campaigns created through the API send from all connected mailboxes of the workspace (\"use all accounts\" mode), so this list does not limit which mailboxes send.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
@@ -8924,7 +8924,7 @@
             }
           },
           "accounts": {
-            "description": "Attached SMTP account ids - included on the detail view.",
+            "description": "Attached SMTP account ids - included on the detail view. The campaign sends from all connected mailboxes of the workspace (\"use all accounts\" mode), not only these.",
             "example": [
               "3f1c2b7e-9a4d-4e18-b2c1-6d8f5a0e7c93"
             ],
@@ -9134,7 +9134,7 @@
             }
           },
           "accounts": {
-            "description": "When supplied, REPLACES the attached SMTP account set.",
+            "description": "When supplied, REPLACES the attached SMTP account set. Campaigns created through the API send from all connected mailboxes of the workspace (\"use all accounts\" mode), so this list does not limit which mailboxes send.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
