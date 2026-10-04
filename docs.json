@@ -91,7 +91,6 @@
             "pages": [
               "GET /v1/emails",
               "GET /v1/emails/{id}",
-              "DELETE /v1/emails/{id}",
               "POST /v1/emails/{id}/reply",
               "POST /v1/emails/{id}/forward",
               "GET /v1/emails/unread/count",

@@ -12,7 +12,7 @@ together, and you can ask for just the newest message of each conversation.
 | Action | Scope |
 | --- | --- |
 | List and read emails | `emails:read` |
-| Delete an email, mark a thread read | `emails:write` |
+| Mark a thread read | `emails:write` |
 | Reply and forward | `emails:send` |
 
 <Note>
@@ -178,8 +178,3 @@ what your team sees stay in step.
 curl -X POST https://api.mailbeast.ai/v1/threads/{id}/read \
   -H "Authorization: Bearer $MAILBEAST_API_KEY"
 ```
-
-## Delete an email
-
-`DELETE /v1/emails/{id}` removes an email from your inbox. It stops appearing in
-listings. The copy on the mail server is left alone.
