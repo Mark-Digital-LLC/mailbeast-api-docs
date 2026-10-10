@@ -24,7 +24,8 @@
               "introduction",
               "quickstart",
               "authentication",
-              "idempotency"
+              "idempotency",
+              "mcp-server"
             ]
           },
           {

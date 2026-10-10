@@ -55,7 +55,7 @@ curl -X POST https://api.mailbeast.ai/v1/campaigns \
     },
     "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true },
     "sequence": [
-      { "subject": "Quick question about {{companyName}}", "body": "<p>Hi {{firstName}}, …</p>" },
+      { "subject": "Quick question about {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>" },
       { "subject": "Following up", "body": "<p>Just circling back.</p>", "delayDays": 3 }
     ],
     "accounts": ["123e4567-e89b-12d3-a456-426614174000"],
@@ -81,7 +81,12 @@ The response returns the created campaign plus a lead-ingest summary:
     "schedule": { "timezone": "America/New_York", "dailyLimit": 50, "…": "…" },
     "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true, "sendAsTextOnly": false },
     "metrics": { "leadsCount": 2, "sent": 0, "opens": 0, "clicks": 0, "replies": 0 },
-    "sequence": [ { "subject": "Quick question about {{companyName}}", "body": "<p>Hi {{firstName}}, …</p>", "delayDays": 0, "delayHours": 0 } ],
+    "sequence": [ {
+      "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+      "subject": "Quick question about {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>",
+      "delayDays": 0, "delayHours": 0,
+      "variants": [ { "id": "550e8400-e29b-41d4-a716-446655440000", "label": "A", "subject": "…", "body": "…", "isActive": true } ]
+    } ],
     "accounts": ["123e4567-e89b-12d3-a456-426614174000"]
   },
   "leads": { "submitted": 2, "created": 2, "duplicates": 0, "invalid": 0 },
@@ -115,6 +120,12 @@ with a `launchError`).
 Before you launch, send yourself a rendered preview of one step variant, from a
 real mailbox, exactly as a lead would receive it.
 
+Take the `variantId` from `sequence[].variants[].id` on the campaign
+(`GET /v1/campaigns/{id}`, or the create response). Campaigns created through the
+API have one variant per step, labelled `A`. Replacing the `sequence` with
+`PATCH` rebuilds the steps, so step and variant ids change - read the campaign
+again before sending a test.
+
 ```bash
 curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/test-email \
   -H "Authorization: Bearer $MAILBEAST_API_KEY" \
@@ -131,8 +142,10 @@ curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/test-email \
 { "sent": true, "messageId": "<test-1750000000000-a1b2c3@mailbeast.ai>" }
 ```
 
-`personalization` decides where merge variables come from. `dummy` fills them
-with placeholders. `lead` uses a real lead, which you name with `leadId`. There
+`personalization` decides where merge variables come from. `lead` uses a real
+lead, which you name with `leadId`. `dummy` uses no lead data at all: lead tags
+such as `{{first_name}}` render **empty** (only the sender tags resolve) - use
+`lead` to check personalization. There
 is no fallback: asking for `lead` without a `leadId` is rejected, so a test can
 never quietly leak the wrong person's data into an email.
 

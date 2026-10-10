@@ -56,6 +56,15 @@ key - revoke any extras from the [list endpoint](/api-reference/api-keys/list-ap
 | Same key, **different** body | `422` - the key is already bound to a different request |
 | Same key, two requests **in flight** at once | The second returns `409` while the first is still processing |
 | Key longer than 255 characters | `400` |
+| `reply` / `forward` / `test-email` while duplicate protection is briefly unavailable | `503` with `Retry-After` - **nothing was sent**, retry with the same key |
+
+<Note>
+**Email sends never run unprotected.** Other writes go through even if duplicate
+protection is briefly unavailable - a stray duplicate draft is easy to clean up.
+An email cannot be unsent, so `POST /v1/emails/{id}/reply`, `/forward` and
+`POST /v1/campaigns/{id}/test-email` sent with an `Idempotency-Key` refuse with
+`503` instead. The retry is safe.
+</Note>
 
 A `422` from a body mismatch looks like this:
 

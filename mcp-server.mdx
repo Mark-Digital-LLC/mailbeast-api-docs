@@ -1,0 +1,109 @@
+---
+title: MCP server
+description: Let Claude, ChatGPT, Cursor and other AI agents run your MailBeast workspace.
+---
+
+The MailBeast MCP server lets an AI assistant work in your workspace: create
+campaigns, add leads, check mailboxes and warmup, read and answer replies, and pull
+analytics - by asking in plain language.
+
+```
+https://mcp.mailbeast.ai/mcp
+```
+
+It uses the same [API key](/authentication) as the REST API, with the same scopes,
+plan access (Pro+ and enterprise) and [rate limit](/authentication#rate-limits) - tool
+calls count against it like direct API requests. The assistant only sees the tools
+your key's scopes allow - a read-only key gets read-only tools.
+
+<Note>
+Create a **separate key for MCP** in [Settings → API Keys](https://app.mailbeast.ai/settings/api). You can revoke it at any time
+without touching your other integrations.
+</Note>
+
+## Connect
+
+The server speaks Streamable HTTP. Pass the key as a header, or - for apps that only
+take a URL - in the path.
+
+<Tabs>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http mailbeast https://mcp.mailbeast.ai/mcp \
+      --header "Authorization: Bearer $MAILBEAST_API_KEY"
+    ```
+  </Tab>
+  <Tab title="Cursor">
+    ```json
+    {
+      "mcpServers": {
+        "mailbeast": {
+          "url": "https://mcp.mailbeast.ai/mcp",
+          "headers": { "Authorization": "Bearer mb_live_…" }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="claude.ai / Claude Desktop / ChatGPT">
+    Add a custom connector (Claude: Settings → Connectors) with the URL that
+    carries your key:
+
+    ```
+    https://mcp.mailbeast.ai/mcp/mb_live_…
+    ```
+
+    <Warning>
+    This URL **is** your API key. Don't share it, paste it in chats or commit it.
+    If it leaks, revoke the key in Settings → API Keys.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## What the assistant can do
+
+| Area | Tools |
+| --- | --- |
+| Workspace | `get_workspace` - plan and remaining limits |
+| Mailboxes | `list_mailboxes`, `get_mailbox`, `connect_mailboxes`, `start_oauth_connect`, `check_oauth_connect`, `update_mailbox`, `pause_mailbox`, `resume_mailbox`, `bulk_update_mailboxes`, `delete_mailbox` |
+| Campaigns | `list_campaigns`, `get_campaign`, `create_campaign`, `update_campaign`, `send_test_email`, `start_campaign`, `pause_campaign`, `resume_campaign`, `delete_campaign` |
+| Leads | `add_leads`, `list_leads`, `get_lead`, `find_lead_by_email`, `update_lead`, `bulk_update_leads`, `delete_leads` |
+| Emails | `list_emails`, `get_email`, `count_unread_emails`, `reply_to_email`, `forward_email`, `mark_thread_read` |
+| Analytics | `get_campaign_analytics`, `get_workspace_analytics` |
+| Lead Finder | `list_lead_searches`, `get_lead_search` |
+
+Every tool calls the matching endpoint of the REST API (see the API Reference tab) -
+the MCP server adds no extra permissions.
+
+## Safety
+
+- **Real email is marked for confirmation.** `start_campaign`, `resume_campaign`,
+  `send_test_email`, `reply_to_email` and `forward_email` are marked as acting on
+  the outside world, and deletions as destructive. Claude and ChatGPT typically
+  ask you before running such tools - unless you chose to always allow them.
+- **Campaigns are created as drafts.** Starting is always a separate step, so the
+  assistant can show you the sequence and send you a test email first.
+- **An email is never sent twice by a retry.** Calling `reply_to_email`,
+  `forward_email` or `send_test_email` again with exactly the same arguments within
+  24 hours returns the first result (`alreadyDone: true`) - a dropped connection
+  can't send it twice. To send the same test email again on purpose, the assistant
+  passes a new `resend` value.
+  Other tools simply run again, which is harmless for them (pausing twice, adding a
+  lead that already exists). See [Idempotency](/idempotency).
+- **Passwords.** Prefer `start_oauth_connect` for Google Workspace and Microsoft 365
+  mailboxes - it needs no password. SMTP/IMAP passwords passed to
+  `connect_mailboxes` are stored encrypted and never returned.
+
+## Example prompts
+
+- "How many emails can I still send this month?"
+- "Create a 3-step campaign for SaaS founders in Berlin, weekdays 9-17 their time, and send me a test of step 1."
+- "Which mailboxes are failing and why?"
+- "Show me today's interested replies and draft answers."
+- "Compare reply rates of my last three campaigns."
+
+<Note>
+`https://developer.mailbeast.ai/mcp` is a different server: it searches **this
+documentation** and does not touch your workspace. It's useful for agents that
+write code against the API.
+</Note>
