@@ -68,7 +68,41 @@ curl -X POST https://api.mailbeast.ai/v1/campaigns \
 `sendingMinutesStart` / `sendingMinutesEnd` are minutes from midnight in the
 campaign timezone - `540` = 09:00, `1020` = 17:00. Step delays are counted from
 the previous step; the first step sends immediately when a lead enters.
+`endDate` is optional: the campaign sends until the end of that day in its
+timezone and then completes. On `PATCH`, `"endDate": null` removes it.
 </Note>
+
+### Per-day windows (advanced schedule)
+
+Instead of one window for all `sendingDays`, you can give each day its own
+windows - the same "Advanced schedule" as in the dashboard. Pass `intervals`
+(this implies `"mode": "advanced"`); `day` is `1` = Monday … `7` = Sunday and
+times are minutes from midnight in the campaign timezone. A shifted week - Monday
+from 09:30, Tuesday from 10:30, and so on:
+
+```json
+"schedule": {
+  "timezone": "America/New_York",
+  "intervals": [
+    { "day": 1, "startMinutes": 570, "endMinutes": 1050 },
+    { "day": 2, "startMinutes": 630, "endMinutes": 1110 },
+    { "day": 3, "startMinutes": 690, "endMinutes": 1170 },
+    { "day": 4, "startMinutes": 750, "endMinutes": 1230 },
+    { "day": 5, "startMinutes": 810, "endMinutes": 1290 }
+  ]
+}
+```
+
+Rules (a violation is a `400`, nothing is changed):
+
+- up to 50 windows; a day may have several, but they must not overlap;
+- start and end on a 30-minute step, each window at least 30 minutes long;
+- at least one window must be enabled (`enabled` defaults to `true`).
+
+`intervals` **replaces** all existing windows. `"mode": "simple"` switches back to
+`sendingDays` + `sendingMinutesStart`/`sendingMinutesEnd` and keeps the windows
+for later; `"mode": "advanced"` alone re-enables the saved ones. Every campaign
+response reports `schedule.mode` and `schedule.intervals`.
 
 The response returns the created campaign plus a lead-ingest summary:
 
@@ -197,7 +231,12 @@ campaign tag id passed to `GET /v1/accounts?tags=` matches nothing.
 
 ## Check status
 
-A lightweight poll of live send-state, the schedule window, and headline metrics:
+A lightweight poll of live send-state, the schedule window, and headline metrics.
+`isWithinSchedule` / `nextScheduleOpensAt` are computed for any status - a draft
+or paused campaign reports whether "now" falls inside its window, not whether it is
+sending. Campaign dates count: before `startDate` or after the end of the `endDate`
+day (campaign timezone) the window is closed, and `nextScheduleOpensAt` is never
+past that day (`null` instead):
 
 ```bash
 curl https://api.mailbeast.ai/v1/campaigns/{id}/status \

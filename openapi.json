@@ -8425,9 +8425,62 @@
           "data"
         ]
       },
+      "ScheduleIntervalApiDto": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "number",
+            "example": 1,
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Day of week, 1=Monday … 7=Sunday."
+          },
+          "startMinutes": {
+            "type": "number",
+            "example": 570,
+            "minimum": 0,
+            "maximum": 1410,
+            "description": "Window start, minutes from midnight in the campaign timezone (570 = 09:30). Multiple of 30."
+          },
+          "endMinutes": {
+            "type": "number",
+            "example": 1050,
+            "minimum": 30,
+            "maximum": 1440,
+            "description": "Window end, minutes from midnight (1050 = 17:30; 1440 = midnight). Multiple of 30, at least 30 minutes after the start."
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "default": true,
+            "description": "Disabled windows are kept but not used."
+          }
+        },
+        "required": [
+          "day",
+          "startMinutes",
+          "endMinutes"
+        ]
+      },
       "CampaignScheduleApiDto": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "advanced"
+            ],
+            "example": "advanced",
+            "description": "`simple` — one window (`sendingDays` + `sendingMinutesStart/End`) for all days. `advanced` — per-day windows from `intervals`. Passing `intervals` implies `advanced`."
+          },
+          "intervals": {
+            "description": "Advanced schedule: sending windows per day (up to 50; windows of one day must not overlap; minutes in 30-minute steps). REPLACES all existing windows. Days without an enabled window do not send.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleIntervalApiDto"
+            }
+          },
           "timezone": {
             "type": "string",
             "example": "America/New_York",
@@ -8476,7 +8529,8 @@
           "endDate": {
             "type": "string",
             "format": "date-time",
-            "description": "ISO-8601 end; omit to run indefinitely."
+            "nullable": true,
+            "description": "ISO-8601 end: the campaign sends until the end of that day (campaign timezone), then completes. Omit to run indefinitely; on update, `null` removes the end date."
           }
         }
       },
@@ -8591,9 +8645,55 @@
           "name"
         ]
       },
+      "ScheduleIntervalView": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "number",
+            "example": 1,
+            "description": "1=Monday … 7=Sunday."
+          },
+          "startMinutes": {
+            "type": "number",
+            "example": 570,
+            "description": "Minutes from midnight."
+          },
+          "endMinutes": {
+            "type": "number",
+            "example": 1050,
+            "description": "Minutes from midnight (1440 = midnight)."
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "day",
+          "startMinutes",
+          "endMinutes",
+          "enabled"
+        ]
+      },
       "CampaignScheduleView": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "simple",
+              "advanced"
+            ],
+            "example": "simple",
+            "description": "Which schedule is in effect. `advanced` → `intervals` decide when it sends and `sendingDays` / `sendingMinutesStart/End` are ignored."
+          },
+          "intervals": {
+            "description": "Per-day windows of the advanced schedule (kept even while `mode` is `simple`).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ScheduleIntervalView"
+            }
+          },
           "timezone": {
             "type": "string",
             "example": "America/New_York"
@@ -8637,6 +8737,8 @@
           }
         },
         "required": [
+          "mode",
+          "intervals",
           "timezone",
           "sendingMinutesStart",
           "sendingMinutesEnd",
@@ -9141,13 +9243,13 @@
           "isWithinSchedule": {
             "type": "boolean",
             "example": true,
-            "description": "Whether the campaign is currently inside its sending window."
+            "description": "Whether now is inside the sending window, for any status: within the campaign dates (not before `startDate`, not after the end of the `endDate` day in the campaign timezone) and inside the schedule (simple or advanced). A draft or paused campaign still does not send."
           },
           "nextScheduleOpensAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true,
-            "description": "When the next sending window opens; null when in-window or not active."
+            "description": "When the campaign can next send (for any status): the next schedule window, or `startDate` itself when it falls inside a window. null when inside a window now, or when no window opens before the end of the `endDate` day."
           },
           "metrics": {
             "$ref": "#/components/schemas/CampaignMetricsView"

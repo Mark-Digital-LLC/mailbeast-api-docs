@@ -36,6 +36,14 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   `POST /v1/campaigns/{id}/start`. Starting needs at least one lead and a sequence.
 - **`PATCH /v1/campaigns/{id}`**: `sequence` and `accounts`, when sent, REPLACE the
   existing ones.
+- **Schedule**: one window for all `sendingDays` (`sendingMinutesStart`/`End`, minutes
+  from midnight in `timezone`), or per-day windows via `schedule.intervals`
+  (`[{ day: 1-7 (Mon-Sun), startMinutes, endMinutes }]`, 30-minute step, no overlaps
+  within a day) - that switches the campaign to `mode: "advanced"` and REPLACES all
+  windows; `mode: "simple"` switches back. Read the current one from
+  `schedule.mode` / `schedule.intervals`.
+  `endDate` = last sending day (until its end in the campaign timezone), then the
+  campaign completes; `endDate: null` on update removes it.
 - **Leads**: 1-100 per `POST /v1/campaigns/{cid}/leads`; deduplicated by email per
   campaign; malformed addresses are counted as `invalid`, not rejected.
 - **Merge tags are snake_case**: `{{first_name}}`, `{{last_name}}`, `{{full_name}}`,
