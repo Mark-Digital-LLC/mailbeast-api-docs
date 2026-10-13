@@ -11,7 +11,7 @@ curl https://api.mailbeast.ai/v1/api-keys \
 ```
 
 The key identifies **both** the caller and the workspace - you never put an
-organization id in the path. A missing or revoked key returns `401`.
+organization id in the path. A missing, deleted or expired key returns `401`.
 
 ## Scopes
 
@@ -33,7 +33,7 @@ behind them.
 | `metrics:read` | Read campaign &amp; workspace analytics |
 | `leadfinder:read` | Read Lead Finder searches |
 | `usage:read` | Read plan usage, subscription &amp; workspace identity |
-| `apikeys:manage` | Create / list / revoke API keys |
+| `apikeys:manage` | Create / list / delete API keys |
 
 ### Wildcard scopes
 

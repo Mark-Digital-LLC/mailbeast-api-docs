@@ -205,8 +205,8 @@
     },
     "/v1/api-keys/{id}": {
       "delete": {
-        "description": "Revoke a key by id - effective immediately. Cannot be undone.\n\nRequires the `apikeys:manage` scope, which no wildcard grants and which can only be created from the dashboard.",
-        "operationId": "apiKeys_revoke",
+        "description": "Delete a key by id. It stops working immediately and is removed from the list. Cannot be undone.\n\nRequires the `apikeys:manage` scope, which no wildcard grants and which can only be created from the dashboard.",
+        "operationId": "apiKeys_delete",
         "parameters": [
           {
             "name": "id",
@@ -233,7 +233,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Key revoked.",
+            "description": "Key deleted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -363,7 +363,7 @@
             "ApiKey": []
           }
         ],
-        "summary": "Revoke an API key",
+        "summary": "Delete an API key",
         "tags": [
           "API Keys"
         ]
@@ -7465,7 +7465,7 @@
   "tags": [
     {
       "name": "API Keys",
-      "description": "Create, list and revoke API keys programmatically."
+      "description": "Create, list and delete API keys programmatically."
     },
     {
       "name": "Campaigns",
@@ -7653,7 +7653,9 @@
           "revokedAt": {
             "type": "string",
             "format": "date-time",
-            "nullable": true
+            "nullable": true,
+            "deprecated": true,
+            "description": "Always null: a deleted key is removed, not kept as revoked."
           },
           "createdAt": {
             "type": "string",

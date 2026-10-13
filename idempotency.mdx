@@ -45,7 +45,7 @@ idempotent and ignore the header.
 **Exception - creating an API key is *not* idempotent.** Its response contains a
 one-time token that is never stored in retrievable form, so it cannot be replayed.
 An `Idempotency-Key` on `POST /v1/api-keys` is ignored, and a retry mints a **new**
-key - revoke any extras from the [list endpoint](/api-reference/api-keys/list-api-keys).
+key - delete any extras ([list](/api-reference/api-keys/list-api-keys) them first).
 </Note>
 
 ## Edge cases
