@@ -62,9 +62,42 @@ curl "https://api.mailbeast.ai/v1/campaigns/{cid}/leads?limit=50&cursor=eyJ0cyI6
 }
 ```
 
-Filter by `status`, `tags`, or `search` (email / name / company). Keep requesting
+Filter by `status`, `tags`, `search` (email / name / company), or `engagement`. Keep requesting
 with `?cursor=meta.nextCursor` until `meta.hasMore` is `false` (then `nextCursor`
 is `null`). `limit` defaults to 50 (max 250).
+
+### Engagement
+
+Every lead carries its engagement, counted **once per email**:
+
+| Field | Meaning |
+| --- | --- |
+| `metrics.sent` | Emails that left our servers for the lead (bounced ones included). |
+| `metrics.opened` | Emails the lead opened. |
+| `metrics.clicked` | Emails in which the lead clicked a tracked link. |
+| `lastOpenedAt` / `lastClickedAt` | Latest of the per-email first opens / first clicks: when the lead first opened (clicked in) the newest email it opened (clicked). Re-opens and repeat clicks don't move it; `null` when there is none. |
+
+Automated opens and clicks by security scanners and link prefetchers are excluded.
+Opens are approximate by nature: Apple Mail and some security gateways load images
+on their own, while clients that block images can hide opens.
+
+`?engagement=` narrows the list:
+
+| Value | Leads who… |
+| --- | --- |
+| `opened` | opened at least one email |
+| `opened_no_reply` | opened, and have not replied. Any reply counts, including out-of-office and other auto-replies. |
+| `clicked` | clicked a tracked link |
+| `not_opened` | were sent at least one email with open tracking and opened none |
+
+```bash
+curl "https://api.mailbeast.ai/v1/campaigns/{cid}/leads?engagement=opened_no_reply" \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+<Note>
+Engagement reaches the lead within about a minute of the open or click.
+</Note>
 
 ## Get one lead
 

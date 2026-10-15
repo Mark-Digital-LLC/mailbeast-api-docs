@@ -371,7 +371,7 @@
     },
     "/v1/campaigns/{cid}/leads": {
       "get": {
-        "description": "Page through a campaign’s leads with filters (status, tags, search).\n\nRequires one of the following scopes: `leads:read`, `leads:all`, `all:read`, `all:all`.",
+        "description": "Page through a campaign’s leads with filters (status, tags, search, engagement: opened / clicked / not opened).\n\nRequires one of the following scopes: `leads:read`, `leads:all`, `all:read`, `all:all`.",
         "operationId": "campaignLeads_list",
         "parameters": [
           {
@@ -457,6 +457,21 @@
               "items": {
                 "type": "string"
               }
+            }
+          },
+          {
+            "name": "engagement",
+            "required": false,
+            "in": "query",
+            "description": "Filter by engagement. `opened` — opened at least one email; `opened_no_reply` — opened and has not replied (any reply counts, out-of-office and auto-replies included); `clicked` — clicked a tracked link; `not_opened` — was sent at least one email with open tracking and opened none.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "opened",
+                "opened_no_reply",
+                "clicked",
+                "not_opened"
+              ]
             }
           }
         ],
@@ -7737,15 +7752,18 @@
         "properties": {
           "sent": {
             "type": "number",
-            "example": 2
+            "example": 2,
+            "description": "Emails sent to the lead (bounced emails included — they left our servers)."
           },
           "opened": {
             "type": "number",
-            "example": 1
+            "example": 1,
+            "description": "Emails the lead opened, counted once per email. Opens are approximate: Apple Mail and security scanners can add or hide opens."
           },
           "clicked": {
             "type": "number",
-            "example": 0
+            "example": 0,
+            "description": "Emails in which the lead clicked a tracked link, counted once per email."
           },
           "replied": {
             "type": "number",
@@ -7910,6 +7928,18 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "lastOpenedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Latest of the per-email first opens: when the lead first opened the newest email it opened. Re-opening an email does not move it; null if no email was opened."
+          },
+          "lastClickedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Latest of the per-email first clicks: when the lead first clicked a tracked link in the newest email it clicked. Repeat clicks do not move it; null if no tracked link was clicked."
           }
         },
         "required": [
@@ -8558,6 +8588,11 @@
             "type": "boolean",
             "example": true,
             "description": "Stop follow-ups to a lead once they reply."
+          },
+          "useAllAccounts": {
+            "type": "boolean",
+            "example": false,
+            "description": "Send from every connected mailbox of the workspace (`true`, the default for a new campaign), or only from the mailboxes in `accounts` (`false` — then `accounts` must hold at least one)."
           }
         }
       },
@@ -8618,7 +8653,7 @@
             }
           },
           "accounts": {
-            "description": "SMTP account ids to attach to the campaign. Campaigns created through the API send from all connected mailboxes of the workspace (\"use all accounts\" mode), so this list does not limit which mailboxes send.",
+            "description": "SMTP account ids the campaign sends from when `settings.useAllAccounts` is `false`. While `useAllAccounts` is `true` (the default) the campaign sends from every connected mailbox and this list does not limit it.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
@@ -8765,13 +8800,19 @@
           "stopOnReply": {
             "type": "boolean",
             "example": true
+          },
+          "useAllAccounts": {
+            "type": "boolean",
+            "example": false,
+            "description": "Sends from every connected mailbox of the workspace (`true`) or only from `accounts` (`false`)."
           }
         },
         "required": [
           "trackOpens",
           "trackClicks",
           "sendAsTextOnly",
-          "stopOnReply"
+          "stopOnReply",
+          "useAllAccounts"
         ]
       },
       "CampaignMetricsView": {
@@ -8956,7 +8997,7 @@
             }
           },
           "accounts": {
-            "description": "Attached SMTP account ids - included on the detail view. The campaign sends from all connected mailboxes of the workspace (\"use all accounts\" mode), not only these.",
+            "description": "Attached SMTP account ids - included on the detail view. The campaign sends only from these when `settings.useAllAccounts` is `false`; while it is `true`, from every connected mailbox of the workspace.",
             "example": [
               "3f1c2b7e-9a4d-4e18-b2c1-6d8f5a0e7c93"
             ],
@@ -9166,7 +9207,7 @@
             }
           },
           "accounts": {
-            "description": "When supplied, REPLACES the attached SMTP account set. Campaigns created through the API send from all connected mailboxes of the workspace (\"use all accounts\" mode), so this list does not limit which mailboxes send.",
+            "description": "When supplied, REPLACES the attached SMTP account set — the mailboxes the campaign sends from when `settings.useAllAccounts` is `false`. While `useAllAccounts` is `true` the campaign sends from every connected mailbox and this list does not limit it.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
@@ -11952,9 +11993,9 @@
           },
           "positive": {
             "type": "number",
-            "example": 2,
+            "example": 41.7,
             "nullable": true,
-            "description": "positiveLeads / leads contacted."
+            "description": "Share of replied leads whose status is positive now (interested / meeting / converted), %. null when nobody replied."
           },
           "conversion": {
             "type": "number",
