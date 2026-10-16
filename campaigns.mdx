@@ -3,8 +3,8 @@ title: Campaigns
 description: Create, configure, launch and monitor email campaigns.
 ---
 
-A campaign bundles a **schedule**, **settings**, an email **sequence**, the sending
-**accounts**, and its **leads**. The API is task-shaped: you create a
+A campaign bundles a **schedule**, **settings**, an email **sequence** (with A/B
+variants), the sending **accounts**, its **tags**, and its **leads**. The API is task-shaped: you create a
 fully-configured campaign in one call rather than stitching together six.
 
 ## Scopes
@@ -33,9 +33,9 @@ limit which mailboxes send.
 </Note>
 
 One call configures everything. The configuration - campaign, schedule, settings,
-sending accounts, and sequence - is **all-or-nothing**: if any part fails
-validation (for example an SMTP account that isn't yours), nothing is created.
-`accounts` must be your workspace's own accounts. `leads` are best-effort and
+sending accounts, tags, and sequence - is **all-or-nothing**: if any part fails
+validation (for example an SMTP account or a tag that isn't yours), nothing is created.
+`accounts` and `tags` must be your workspace's own. `leads` are best-effort and
 summarized in the response. If `launch: true` is set and the campaign can't start,
 the call still returns `201` - the campaign is created as a draft, with
 `launched: false` and a `launchError` explaining why (start it later with
@@ -55,12 +55,26 @@ curl -X POST https://api.mailbeast.ai/v1/campaigns \
       "sendingMinutesEnd": 1020,
       "dailyLimit": 50
     },
-    "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true, "useAllAccounts": false },
+    "settings": {
+      "trackOpens": true,
+      "trackClicks": true,
+      "stopOnReply": true,
+      "useAllAccounts": false,
+      "skipRiskyEmails": true,
+      "unsubscribeLinkHeader": true,
+      "abTestingOptimization": true
+    },
     "sequence": [
-      { "subject": "Quick question about {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>" },
+      {
+        "variants": [
+          { "subject": "Quick question about {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>" },
+          { "subject": "{{first_name}}, an idea for {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>" }
+        ]
+      },
       { "subject": "Following up", "body": "<p>Just circling back.</p>", "delayDays": 3 }
     ],
     "accounts": ["123e4567-e89b-12d3-a456-426614174000"],
+    "tags": ["8debf023-6c1e-4b7a-9f3d-2a1b0c9d8e7f"],
     "leads": ["jane@acme.com", "sam@globex.com"],
     "launch": false
   }'
@@ -73,6 +87,27 @@ the previous step; the first step sends immediately when a lead enters.
 `endDate` is optional: the campaign sends until the end of that day in its
 timezone and then completes. On `PATCH`, `"endDate": null` removes it.
 </Note>
+
+### Campaigns that keep receiving leads
+
+By default a campaign completes once every lead has received every step. Leads
+added after that are not sent until someone restarts the campaign in the
+dashboard - the API cannot restart a completed campaign. If
+leads keep arriving over time - for example an automation that calls
+`POST /v1/campaigns/{id}/leads` every day - set
+`"keepActiveWhenNoLeads": true` in `schedule`:
+
+```json
+"schedule": { "timezone": "America/New_York", "keepActiveWhenNoLeads": true }
+```
+
+The campaign then stays `active` when it runs out of leads and starts
+scheduling new leads as soon as they are added - no restart needed. It still
+completes on its `endDate`, and you can pause or delete it as usual. Switch it
+on for an existing campaign with `PATCH /v1/campaigns/{id}` before its leads run
+out - it does not reopen a campaign that has already completed. `/start` needs at
+least one lead, so add the first leads before starting; an empty campaign cannot
+be started to wait for them.
 
 ### Per-day windows (advanced schedule)
 
@@ -106,6 +141,75 @@ Rules (a violation is a `400`, nothing is changed):
 for later; `"mode": "advanced"` alone re-enables the saved ones. Every campaign
 response reports `schedule.mode` and `schedule.intervals`.
 
+### A/B variants
+
+A step is either one email (`subject` + `body`) or an A/B test: `variants`, up to
+**5**, lettered `A`, `B`, `C`… in the order you pass them - the same as the
+sequence editor in the dashboard. Leads are split **evenly** between the active
+variants of a step (two → 50% each, three → 33.33%). A variant with
+`"isActive": false` is kept but not sent; at least one per step must stay active.
+A variant without `isActive` is on - when you send variants back, pass each one's
+`isActive` as the campaign shows it, or a switched-off variant starts sending again.
+
+```json
+"sequence": [
+  {
+    "variants": [
+      { "subject": "Quick question about {{company_name}}", "body": "<p>…</p>" },
+      { "subject": "Idea for {{company_name}}", "body": "<p>…</p>" },
+      { "subject": "{{first_name}}?", "body": "<p>…</p>", "isActive": false }
+    ]
+  },
+  { "subject": "Following up", "body": "<p>…</p>", "delayDays": 3 }
+]
+```
+
+Pass either `variants` or `subject` + `body` on a step, not both (`400`). A step
+read back from `GET` shows its variant A as `subject` + `body` next to `variants`;
+when you send the step back, send only its `variants`. With
+`settings.abTestingOptimization: true`, once every active variant of a step has
+at least 1000 sends, the variant with the best reply rate is kept and the others are
+switched off - `variants[].isActive` shows the result.
+
+### Settings
+
+`settings` holds everything on the campaign's **Settings** page. Every field is
+optional; on `PATCH` only the fields you pass change. A new campaign starts with
+the defaults below.
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| `useAllAccounts` | `true` | Send from every connected mailbox, or (`false`) only from `accounts`. |
+| `stopOnReply` | `true` | Stop follow-ups to a lead once they reply. |
+| `stopOnBounce` | `true` | Stop sending to a lead whose email hard-bounced. |
+| `stopCompanyOnReply` | `true` | A reply stops the sequence for every lead of the same company email domain (public domains such as gmail.com never match). |
+| `highBounceAutoProtection` | `false` | Pause the campaign when its hard-bounce rate over the last 24 hours goes above 5%. |
+| `skipInvalidEmails` | `true` | Skip leads whose email verification is `invalid`. |
+| `skipUnknownEmails` | `true` | Skip leads whose email verification is `unknown`. |
+| `skipRiskyEmails` | `false` | Skip leads whose email verification is `risky` (catch-all domain). |
+| `trackOpens` | `false` | Track opens. Not available with `sendAsTextOnly`. |
+| `trackClicks` | `false` | Track link clicks. Not available with `sendAsTextOnly`. |
+| `sendAsTextOnly` | `false` | Send plain text only, no HTML part. |
+| `sendFirstAsText` | `false` | Send the first step as plain text, follow-ups as HTML. The first email is then not tracked and has no body unsubscribe link (the `List-Unsubscribe` header still applies). |
+| `emailProviderMatching` | `false` | Prefer a sending mailbox on the lead's provider (Google to Google, Outlook to Outlook). |
+| `unsubscribeLinkHeader` | `false` | Add the one-click `List-Unsubscribe` header (RFC 8058). |
+| `unsubscribeLinkBody` | `false` | Add an unsubscribe link at the bottom of the email body. |
+| `autoBlacklistOnUnsubscribe` | `false` | Also add a lead who unsubscribes to the workspace blacklist. |
+| `newLeadsRatio` | `80` | Percent (0-100) of daily sending that goes to first emails for new leads; the rest is follow-ups. `0` contacts no new leads. |
+| `abTestingOptimization` | `false` | Keep the best-replying variant of each step automatically (see above). |
+| `hubspotSyncEnabled` | `true` | Let the recurring HubSpot sync add contacts to this campaign (only matters when HubSpot is connected). |
+
+The text modes follow the dashboard's rules: `sendAsTextOnly` and
+`sendFirstAsText` exclude each other - turning one on turns the other off, and
+both `true` in one request is a `400`. A plain-text-only email has no HTML for an
+open pixel, tracked links or a body unsubscribe link, so turning `sendAsTextOnly`
+on turns `trackOpens`, `trackClicks` and `unsubscribeLinkBody` off, and asking for
+any of them as `true` while it is on is a `400`. To track the follow-ups but keep the
+first email plain, use `sendFirstAsText`.
+
+Every field may be left out, and `null` counts as left out (the current value stays)
+everywhere except `schedule.endDate`, where `null` removes the end date.
+
 The response returns the created campaign plus a lead-ingest summary:
 
 ```json Response
@@ -115,15 +219,19 @@ The response returns the created campaign plus a lead-ingest summary:
     "name": "Q4 Product Launch Outreach",
     "status": "draft",
     "schedule": { "timezone": "America/New_York", "dailyLimit": 50, "…": "…" },
-    "settings": { "trackOpens": true, "trackClicks": true, "stopOnReply": true, "sendAsTextOnly": false },
+    "settings": { "trackOpens": true, "stopOnReply": true, "useAllAccounts": false, "skipRiskyEmails": true, "…": "every field from the table above" },
     "metrics": { "leadsCount": 2, "sent": 0, "opens": 0, "clicks": 0, "replies": 0 },
     "sequence": [ {
       "id": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
       "subject": "Quick question about {{company_name}}", "body": "<p>Hi {{first_name}}, …</p>",
       "delayDays": 0, "delayHours": 0,
-      "variants": [ { "id": "550e8400-e29b-41d4-a716-446655440000", "label": "A", "subject": "…", "body": "…", "isActive": true } ]
+      "variants": [
+        { "id": "550e8400-e29b-41d4-a716-446655440000", "label": "A", "subject": "Quick question about {{company_name}}", "body": "…", "isActive": true },
+        { "id": "6c1e8b2a-4f3d-4e5a-9b8c-7d6e5f4a3b2c", "label": "B", "subject": "{{first_name}}, an idea for {{company_name}}", "body": "…", "isActive": true }
+      ]
     } ],
-    "accounts": ["123e4567-e89b-12d3-a456-426614174000"]
+    "accounts": ["123e4567-e89b-12d3-a456-426614174000"],
+    "tags": [ { "id": "8debf023-6c1e-4b7a-9f3d-2a1b0c9d8e7f", "name": "q4-launch", "color": "#10B981" } ]
   },
   "leads": { "submitted": 2, "created": 2, "duplicates": 0, "invalid": 0 },
   "launched": false
@@ -134,7 +242,8 @@ The response returns the created campaign plus a lead-ingest summary:
 
 Drive the send lifecycle through explicit routes - `/start`, `/pause`, or `/resume`.
 To end a campaign, pause it (or delete it); completion otherwise happens
-automatically when the end date passes or every lead has been sent.
+automatically when the end date passes or every lead has been sent (unless
+`schedule.keepActiveWhenNoLeads` is on - then only the end date completes it).
 
 ```bash
 curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/start \
@@ -157,10 +266,10 @@ Before you launch, send yourself a rendered preview of one step variant, from a
 real mailbox, exactly as a lead would receive it.
 
 Take the `variantId` from `sequence[].variants[].id` on the campaign
-(`GET /v1/campaigns/{id}`, or the create response). Campaigns created through the
-API have one variant per step, labelled `A`. Replacing the `sequence` with
-`PATCH` rebuilds the steps, so step and variant ids change - read the campaign
-again before sending a test.
+(`GET /v1/campaigns/{id}`, or the create response). A step written with
+`subject` + `body` has one variant, labelled `A`; an A/B step has one per variant.
+Replacing the `sequence` with `PATCH` rebuilds the steps, so step and variant ids
+change - read the campaign again before sending a test.
 
 ```bash
 curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/test-email \
@@ -207,9 +316,10 @@ retry automatically: a `400` is worth giving up on, a `503` is not.
 
 ## Tags
 
-Every campaign in `GET /v1/campaigns` carries its `tags` – the ones you set in the
-dashboard. The API reads them and lets you filter by them, so "the campaigns for
-client X" is a single call rather than a full page-through.
+Every campaign in `GET /v1/campaigns` carries its `tags`. The API reads them, lets
+you filter by them - so "the campaigns for client X" is a single call rather than
+a full page-through - and puts them on a campaign: pass tag ids in `tags` on
+create, or on `PATCH` to replace the set (`"tags": []` removes them all).
 
 ```bash
 # every campaign, with its tags
@@ -224,7 +334,6 @@ curl "https://api.mailbeast.ai/v1/campaigns?tags=8debf023-…,1f2e3d4c-…" \
 
 <Note>
 Tags are **created, renamed, and deleted in the dashboard**, not through the API.
-There is no `/v1/tags` resource.
 
 Campaign tags and mailbox tags are **separate sets**. Two tags with
 the same name on the two pages are different tags, and their ids never cross over: a
@@ -257,9 +366,10 @@ curl https://api.mailbeast.ai/v1/campaigns/{id}/status \
 
 ## Update
 
-`PATCH` touches only the sections you supply. Supplying `accounts` or `sequence`
-**replaces** that section entirely (the sequence is replaced in place - you always
-end up with exactly the steps you sent). A supplied `sequence` must have **at least
+`PATCH` touches only the sections you supply. Supplying `accounts`, `tags`, or
+`sequence` **replaces** that section entirely (the sequence is replaced in place -
+you always end up with exactly the steps and variants you sent; to keep a step's
+A/B test, send its `variants` again). A supplied `sequence` must have **at least
 one step** - an empty array is rejected (`400`); omit the field to leave the
 sequence unchanged.
 
@@ -275,7 +385,7 @@ Unlike create, `PATCH` applies each supplied section independently - it is not a
 single cross-section transaction, so a later section failing does not roll back an
 earlier one. Send one section at a time if you need to isolate failures. The
 `sequence` of a campaign that is **actively sending** cannot be changed; pause it
-first. `accounts` and `settings.useAllAccounts` **can** be updated live; with
+first - a `PATCH` that includes it is rejected (`400`) before anything is written. `accounts` and `settings.useAllAccounts` **can** be updated live; with
 `useAllAccounts: false` the campaign sends only from `accounts`, which then may not
 end up empty.
 </Note>

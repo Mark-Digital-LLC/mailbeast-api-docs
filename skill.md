@@ -34,8 +34,23 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   `sequence[].variants[].id` from `GET /v1/campaigns/{id}`, send a test with
   `POST /v1/campaigns/{id}/test-email` (12 per day per workspace), then
   `POST /v1/campaigns/{id}/start`. Starting needs at least one lead and a sequence.
-- **`PATCH /v1/campaigns/{id}`**: `sequence` and `accounts`, when sent, REPLACE the
-  existing ones.
+- **A/B tests**: a sequence step is `subject` + `body` (one variant A) or `variants`
+  (up to 5, lettered A-E in order, leads split evenly between the active ones) - not
+  both. A step from `GET` shows variant A as `subject` + `body` too - send only its
+  `variants` back. `settings.abTestingOptimization: true` later keeps the best-replying variant.
+- **Settings** = the campaign's Settings page: `stopOnReply`, `stopOnBounce`,
+  `stopCompanyOnReply`, `highBounceAutoProtection`, `skipInvalidEmails` /
+  `skipUnknownEmails` / `skipRiskyEmails`, `trackOpens`, `trackClicks`,
+  `sendAsTextOnly` / `sendFirstAsText` (exclusive; `sendAsTextOnly` turns tracking and
+  `unsubscribeLinkBody` off), `emailProviderMatching`, `unsubscribeLinkHeader`, `unsubscribeLinkBody`,
+  `autoBlacklistOnUnsubscribe`, `newLeadsRatio` (0-100), `abTestingOptimization`,
+  `hubspotSyncEnabled`, `useAllAccounts`.
+- **Campaign tags**: `tags` = campaign tag ids (take them from `tags[]` of any campaign;
+  tags are created in the dashboard). Mailbox tag ids are a different set.
+- **`PATCH /v1/campaigns/{id}`**: `sequence`, `accounts` and `tags`, when sent, REPLACE
+  the existing ones (resend a step's `variants`, without its `subject`/`body`, to keep its
+  A/B test). An active campaign's `sequence` can't be replaced - pause it first. `null` =
+  field left out, except `schedule.endDate: null` (removes the end date).
 - **Schedule**: one window for all `sendingDays` (`sendingMinutesStart`/`End`, minutes
   from midnight in `timezone`), or per-day windows via `schedule.intervals`
   (`[{ day: 1-7 (Mon-Sun), startMinutes, endMinutes }]`, 30-minute step, no overlaps
@@ -44,6 +59,12 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   `schedule.mode` / `schedule.intervals`.
   `endDate` = last sending day (until its end in the campaign timezone), then the
   campaign completes; `endDate: null` on update removes it.
+  `keepActiveWhenNoLeads: true` = the campaign stays active when it runs out of leads
+  and schedules leads added later automatically (use it for a campaign fed over time);
+  default `false` = it completes once every lead got every step. `endDate` still ends it.
+  Set it before the leads run out: the API cannot restart a completed campaign (dashboard
+  only) and the flag does not reopen it. `/start` needs at least one lead - an empty
+  campaign cannot be started to wait for leads.
 - **Leads**: 1-100 per `POST /v1/campaigns/{cid}/leads`; deduplicated by email per
   campaign; malformed addresses are counted as `invalid`, not rejected.
 - **Merge tags are snake_case**: `{{first_name}}`, `{{last_name}}`, `{{full_name}}`,

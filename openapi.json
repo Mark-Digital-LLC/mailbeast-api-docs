@@ -1655,7 +1655,7 @@
     },
     "/v1/campaigns": {
       "post": {
-        "description": "Create a campaign with its schedule, settings, sequence, sending accounts, and optionally its leads, in one call. Set `launch: true` to start it right away, which also needs the `campaigns:lifecycle` scope. If it cannot launch, the campaign is still created and `launchError` says why.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
+        "description": "Create a campaign with its schedule, settings, sequence (with A/B variants), sending accounts, tags, and optionally its leads, in one call. Set `launch: true` to start it right away, which also needs the `campaigns:lifecycle` scope. If it cannot launch, the campaign is still created and `launchError` says why.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_create",
         "parameters": [
           {
@@ -1843,7 +1843,7 @@
               "maximum": 100,
               "default": 50,
               "example": 50,
-              "type": "number"
+              "type": "integer"
             }
           },
           {
@@ -2116,7 +2116,7 @@
         ]
       },
       "patch": {
-        "description": "Partial update - only the supplied sections are touched. `accounts` and `sequence`, when present, REPLACE the existing set.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
+        "description": "Partial update - only the supplied sections are touched. `accounts`, `tags` and `sequence`, when present, REPLACE the existing set.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_update",
         "parameters": [
           {
@@ -8461,21 +8461,21 @@
         "type": "object",
         "properties": {
           "day": {
-            "type": "number",
+            "type": "integer",
             "example": 1,
             "minimum": 1,
             "maximum": 7,
             "description": "Day of week, 1=Monday … 7=Sunday."
           },
           "startMinutes": {
-            "type": "number",
+            "type": "integer",
             "example": 570,
             "minimum": 0,
             "maximum": 1410,
             "description": "Window start, minutes from midnight in the campaign timezone (570 = 09:30). Multiple of 30."
           },
           "endMinutes": {
-            "type": "number",
+            "type": "integer",
             "example": 1050,
             "minimum": 30,
             "maximum": 1440,
@@ -8529,25 +8529,25 @@
             "description": "Sending days, 1=Monday … 7=Sunday.",
             "type": "array",
             "items": {
-              "type": "number"
+              "type": "integer"
             }
           },
           "sendingMinutesStart": {
-            "type": "number",
+            "type": "integer",
             "example": 540,
             "minimum": 0,
             "maximum": 1439,
             "description": "Send-window start as minutes from midnight (540 = 09:00)."
           },
           "sendingMinutesEnd": {
-            "type": "number",
+            "type": "integer",
             "example": 1020,
             "minimum": 0,
             "maximum": 1439,
             "description": "Send-window end as minutes from midnight (1020 = 17:00)."
           },
           "dailyLimit": {
-            "type": "number",
+            "type": "integer",
             "example": 50,
             "minimum": 0,
             "maximum": 10000,
@@ -8563,6 +8563,11 @@
             "format": "date-time",
             "nullable": true,
             "description": "ISO-8601 end: the campaign sends until the end of that day (campaign timezone), then completes. Omit to run indefinitely; on update, `null` removes the end date."
+          },
+          "keepActiveWhenNoLeads": {
+            "type": "boolean",
+            "example": true,
+            "description": "Keep the campaign active when it runs out of leads; new leads added later are scheduled automatically. Default false. With `false`, the campaign completes once every lead has received every step. `endDate` still completes the campaign either way."
           }
         }
       },
@@ -8572,17 +8577,17 @@
           "trackOpens": {
             "type": "boolean",
             "example": true,
-            "description": "Track email opens."
+            "description": "Track email opens. Not available with `sendAsTextOnly` (`true` while it is on is a 400)."
           },
           "trackClicks": {
             "type": "boolean",
             "example": true,
-            "description": "Track link clicks."
+            "description": "Track link clicks. Not available with `sendAsTextOnly` (`true` while it is on is a 400)."
           },
           "sendAsTextOnly": {
             "type": "boolean",
             "example": false,
-            "description": "Send plain-text only (no HTML part)."
+            "description": "Send plain-text only (no HTML part). Turning it on turns `sendFirstAsText`, `trackOpens`, `trackClicks` and `unsubscribeLinkBody` off - a plain-text email has no pixel, tracked links or body link."
           },
           "stopOnReply": {
             "type": "boolean",
@@ -8593,10 +8598,82 @@
             "type": "boolean",
             "example": false,
             "description": "Send from every connected mailbox of the workspace (`true`, the default for a new campaign), or only from the mailboxes in `accounts` (`false` — then `accounts` must hold at least one)."
+          },
+          "stopOnBounce": {
+            "type": "boolean",
+            "example": true,
+            "description": "Stop sending to a lead whose email hard-bounced (the address does not exist). Soft bounces do not stop it. Default `true`."
+          },
+          "stopCompanyOnReply": {
+            "type": "boolean",
+            "example": true,
+            "description": "When a lead replies, stop the sequence for every other lead of the same company email domain (someone@acme.com replies → all other @acme.com leads stop). Public domains such as gmail.com or outlook.com are never matched. Default `true`."
+          },
+          "highBounceAutoProtection": {
+            "type": "boolean",
+            "example": false,
+            "description": "Pause the campaign automatically when its hard-bounce rate over the last 24 hours goes above 5%, to protect the sending mailboxes. Default `false`."
+          },
+          "skipInvalidEmails": {
+            "type": "boolean",
+            "example": true,
+            "description": "Skip leads whose email verification came back `invalid` (the address does not exist). Default `true`."
+          },
+          "skipUnknownEmails": {
+            "type": "boolean",
+            "example": true,
+            "description": "Skip leads whose email verification came back `unknown` (the mail server gave no clear answer). Default `true`."
+          },
+          "skipRiskyEmails": {
+            "type": "boolean",
+            "example": false,
+            "description": "Skip leads whose email verification came back `risky` (catch-all / accept-all domain). Worth turning on for large lists: these addresses bounce far more often. Default `false`."
+          },
+          "sendFirstAsText": {
+            "type": "boolean",
+            "example": false,
+            "description": "Send the first step as plain text and the follow-ups as HTML. The first email is then not tracked and has no body unsubscribe link (the `List-Unsubscribe` header still applies). Cannot be combined with `sendAsTextOnly`: turning one on turns the other off (both `true` in one request is a 400). Default `false`."
+          },
+          "emailProviderMatching": {
+            "type": "boolean",
+            "example": true,
+            "description": "Prefer a sending mailbox on the same provider as the lead (Google to Google, Outlook to Outlook) when the campaign has one. Default `false`."
+          },
+          "unsubscribeLinkHeader": {
+            "type": "boolean",
+            "example": true,
+            "description": "Add the one-click `List-Unsubscribe` header (RFC 8058) to every email. Whether the mail client shows an unsubscribe button is up to the provider. Default `false`."
+          },
+          "unsubscribeLinkBody": {
+            "type": "boolean",
+            "example": false,
+            "description": "Add an unsubscribe link at the bottom of the email body. Not available with `sendAsTextOnly` (a plain-text-only email gets no link): turning `sendAsTextOnly` on turns this off, and `true` while it is on is a 400. Default `false`."
+          },
+          "autoBlacklistOnUnsubscribe": {
+            "type": "boolean",
+            "example": false,
+            "description": "Also add a lead who unsubscribes to the workspace blacklist, so no campaign emails them again. Without it, unsubscribing stops only this campaign. Default `false`."
+          },
+          "newLeadsRatio": {
+            "type": "integer",
+            "example": 80,
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Percent of the daily sending that goes to first emails for new leads; the rest goes to follow-up steps. `0` sends follow-ups only, no new lead is contacted. Default `80`."
+          },
+          "abTestingOptimization": {
+            "type": "boolean",
+            "example": false,
+            "description": "A/B auto-optimization: once every active variant of a step has at least 1000 sends, keep the variant with the best reply rate and switch the others off. Only matters for steps with several `variants`. Default `false`."
+          },
+          "hubspotSyncEnabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Let the recurring HubSpot sync add new contacts to this campaign. Only matters when HubSpot is connected and a HubSpot segment is imported into this campaign. Default `true`."
           }
         }
       },
-      "CampaignSequenceStepApiDto": {
+      "CampaignSequenceVariantApiDto": {
         "type": "object",
         "properties": {
           "subject": {
@@ -8610,25 +8687,56 @@
             "example": "<p>Hi {{first_name}}, …</p>",
             "description": "HTML body. Same merge tags as the subject, e.g. {{first_name}}, {{company_name}}, {{custom_<field>}}."
           },
-          "delayDays": {
-            "type": "number",
-            "example": 0,
-            "minimum": 0,
-            "maximum": 365,
-            "description": "Days to wait before this step (0 for the first email)."
-          },
-          "delayHours": {
-            "type": "number",
-            "example": 0,
-            "minimum": 0,
-            "maximum": 23,
-            "description": "Additional hours to wait before this step."
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "default": true,
+            "description": "A switched-off variant is kept but not sent. At least one variant of each step must stay on. Omitted = on: when sending variants back, pass `isActive` as the campaign shows it."
           }
         },
         "required": [
           "subject",
           "body"
         ]
+      },
+      "CampaignSequenceStepApiDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "example": "Quick question about {{company_name}}",
+            "maxLength": 500,
+            "description": "Email subject. Merge tags (snake_case): {{first_name}}, {{last_name}}, {{full_name}}, {{email}}, {{company_name}}, {{job_title}}, {{website}}, {{linkedin_profile}}, {{location}}, custom fields as {{custom_<field>}}, sender {{senderFirstName}} / {{senderLastName}} / {{senderFullName}}. No spaces inside the braces. Unknown tags render as empty text. Required unless you pass `variants`."
+          },
+          "body": {
+            "type": "string",
+            "example": "<p>Hi {{first_name}}, …</p>",
+            "description": "HTML body. Same merge tags as the subject, e.g. {{first_name}}, {{company_name}}, {{custom_<field>}}. Required unless you pass `variants`."
+          },
+          "variants": {
+            "minItems": 1,
+            "maxItems": 5,
+            "description": "A/B variants of this step, instead of `subject` + `body`: up to 5, lettered A, B, C… in order. Leads are split evenly between the active ones. Pass either `variants` or `subject` + `body`, not both - a step read from GET also shows variant A as `subject` + `body`; leave those out when sending `variants`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignSequenceVariantApiDto"
+            }
+          },
+          "delayDays": {
+            "type": "integer",
+            "example": 0,
+            "minimum": 0,
+            "maximum": 365,
+            "description": "Days to wait before this step (0 for the first email)."
+          },
+          "delayHours": {
+            "type": "integer",
+            "example": 0,
+            "minimum": 0,
+            "maximum": 23,
+            "description": "Additional hours to wait before this step."
+          }
+        }
       },
       "CreateCampaignApiDto": {
         "type": "object",
@@ -8653,13 +8761,27 @@
             }
           },
           "accounts": {
+            "maxItems": 100,
             "description": "SMTP account ids the campaign sends from when `settings.useAllAccounts` is `false`. While `useAllAccounts` is `true` (the default) the campaign sends from every connected mailbox and this list does not limit it.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "tags": {
+            "maxItems": 50,
+            "description": "Campaign tag ids to put on the campaign. Read the ids from `tags[]` on any campaign; tags themselves are created in the dashboard. Mailbox tag ids are a different dictionary and are rejected.",
+            "example": [
+              "5c9b1e77-2f4a-4c31-9d8e-1a2b3c4d5e6f"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           },
           "leads": {
@@ -8771,6 +8893,11 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "keepActiveWhenNoLeads": {
+            "type": "boolean",
+            "example": false,
+            "description": "true → the campaign stays active when it runs out of leads and schedules new leads as they are added; false → it completes once every lead has received every step."
           }
         },
         "required": [
@@ -8779,7 +8906,8 @@
           "timezone",
           "sendingMinutesStart",
           "sendingMinutesEnd",
-          "dailyLimit"
+          "dailyLimit",
+          "keepActiveWhenNoLeads"
         ]
       },
       "CampaignSettingsView": {
@@ -8805,6 +8933,76 @@
             "type": "boolean",
             "example": false,
             "description": "Sends from every connected mailbox of the workspace (`true`) or only from `accounts` (`false`)."
+          },
+          "stopOnBounce": {
+            "type": "boolean",
+            "example": true,
+            "description": "Stop sending to a lead whose email hard-bounced."
+          },
+          "stopCompanyOnReply": {
+            "type": "boolean",
+            "example": true,
+            "description": "A reply stops the sequence for every lead of the same company email domain."
+          },
+          "highBounceAutoProtection": {
+            "type": "boolean",
+            "example": false,
+            "description": "Auto-pause when the 24-hour hard-bounce rate goes above 5%."
+          },
+          "skipInvalidEmails": {
+            "type": "boolean",
+            "example": true,
+            "description": "Skip leads whose email verification is `invalid`."
+          },
+          "skipUnknownEmails": {
+            "type": "boolean",
+            "example": true,
+            "description": "Skip leads whose email verification is `unknown`."
+          },
+          "skipRiskyEmails": {
+            "type": "boolean",
+            "example": false,
+            "description": "Skip leads whose email verification is `risky` (catch-all)."
+          },
+          "sendFirstAsText": {
+            "type": "boolean",
+            "example": false,
+            "description": "First step as plain text, follow-ups as HTML."
+          },
+          "emailProviderMatching": {
+            "type": "boolean",
+            "example": true,
+            "description": "Prefer a sending mailbox on the same provider as the lead."
+          },
+          "unsubscribeLinkHeader": {
+            "type": "boolean",
+            "example": true,
+            "description": "One-click `List-Unsubscribe` header (RFC 8058)."
+          },
+          "unsubscribeLinkBody": {
+            "type": "boolean",
+            "example": false,
+            "description": "Unsubscribe link at the bottom of the email body."
+          },
+          "autoBlacklistOnUnsubscribe": {
+            "type": "boolean",
+            "example": false,
+            "description": "Leads who unsubscribe also go to the workspace blacklist."
+          },
+          "newLeadsRatio": {
+            "type": "number",
+            "example": 80,
+            "description": "Percent of daily sending for first emails to new leads; the rest is follow-ups."
+          },
+          "abTestingOptimization": {
+            "type": "boolean",
+            "example": false,
+            "description": "A/B auto-optimization: keep the best-replying variant of each step."
+          },
+          "hubspotSyncEnabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "The recurring HubSpot sync may add contacts to this campaign."
           }
         },
         "required": [
@@ -8812,7 +9010,21 @@
           "trackClicks",
           "sendAsTextOnly",
           "stopOnReply",
-          "useAllAccounts"
+          "useAllAccounts",
+          "stopOnBounce",
+          "stopCompanyOnReply",
+          "highBounceAutoProtection",
+          "skipInvalidEmails",
+          "skipUnknownEmails",
+          "skipRiskyEmails",
+          "sendFirstAsText",
+          "emailProviderMatching",
+          "unsubscribeLinkHeader",
+          "unsubscribeLinkBody",
+          "autoBlacklistOnUnsubscribe",
+          "newLeadsRatio",
+          "abTestingOptimization",
+          "hubspotSyncEnabled"
         ]
       },
       "CampaignMetricsView": {
@@ -8876,7 +9088,7 @@
           "isActive": {
             "type": "boolean",
             "example": true,
-            "description": "Whether this variant is enabled. It is sent only while its step and the campaign are active too."
+            "description": "Whether this variant is enabled. It is sent only while its step and the campaign are active too. Leads are split evenly between the enabled variants of a step; A/B auto-optimization switches the losing ones off."
           }
         },
         "required": [
@@ -8898,12 +9110,12 @@
           "subject": {
             "type": "string",
             "example": "Quick question about {{company_name}}",
-            "description": "Subject of the first variant."
+            "description": "Subject of the first variant (a copy of `variants[0].subject`). Leave it out when you send the step back with `variants`."
           },
           "body": {
             "type": "string",
             "example": "<p>Hi {{first_name}}, …</p>",
-            "description": "Body of the first variant."
+            "description": "Body of the first variant (a copy of `variants[0].body`). Leave it out when you send the step back with `variants`."
           },
           "delayDays": {
             "type": "number",
@@ -8914,7 +9126,7 @@
             "example": 0
           },
           "variants": {
-            "description": "Content variants of this step, by letter. Campaigns created through the API have a single variant `A`.",
+            "description": "A/B variants of this step, by letter (A, B, C…). A step written with `subject` + `body` has a single variant `A`.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CampaignSequenceVariantView"
@@ -9200,20 +9412,34 @@
           },
           "sequence": {
             "minItems": 1,
-            "description": "When supplied, REPLACES the full sequence with these steps (at least one). Omit to leave the sequence unchanged.",
+            "description": "When supplied, REPLACES the full sequence with these steps (at least one). Omit to leave the sequence unchanged. An active campaign's sequence cannot be replaced - pause it first (400, nothing is written).",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CampaignSequenceStepApiDto"
             }
           },
           "accounts": {
+            "maxItems": 100,
             "description": "When supplied, REPLACES the attached SMTP account set — the mailboxes the campaign sends from when `settings.useAllAccounts` is `false`. While `useAllAccounts` is `true` the campaign sends from every connected mailbox and this list does not limit it.",
             "example": [
               "123e4567-e89b-12d3-a456-426614174000"
             ],
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "tags": {
+            "maxItems": 50,
+            "description": "When supplied, REPLACES the campaign's tags (`[]` removes them all). Campaign tag ids to put on the campaign. Read the ids from `tags[]` on any campaign; tags themselves are created in the dashboard. Mailbox tag ids are a different dictionary and are rejected.",
+            "example": [
+              "5c9b1e77-2f4a-4c31-9d8e-1a2b3c4d5e6f"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         }
