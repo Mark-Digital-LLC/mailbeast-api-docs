@@ -44,7 +44,13 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   `sendAsTextOnly` / `sendFirstAsText` (exclusive; `sendAsTextOnly` turns tracking and
   `unsubscribeLinkBody` off), `emailProviderMatching`, `unsubscribeLinkHeader`, `unsubscribeLinkBody`,
   `autoBlacklistOnUnsubscribe`, `newLeadsRatio` (0-100), `abTestingOptimization`,
-  `hubspotSyncEnabled`, `useAllAccounts`.
+  `hubspotSyncEnabled`, `useAllAccounts`, `keepActiveWhenNoLeads`.
+  `keepActiveWhenNoLeads: true` = the campaign stays active when it runs out of leads
+  and schedules leads added later automatically (use it for a campaign fed over time);
+  default `false` = it completes once every lead got every step. `schedule.endDate` still
+  ends it. Set it before the leads run out: the API cannot restart a completed campaign
+  (dashboard only) and the flag does not reopen it. `/start` needs at least one lead - an
+  empty campaign cannot be started to wait for leads.
 - **Campaign tags**: `tags` = campaign tag ids (take them from `tags[]` of any campaign;
   tags are created in the dashboard). Mailbox tag ids are a different set.
 - **`PATCH /v1/campaigns/{id}`**: `sequence`, `accounts` and `tags`, when sent, REPLACE
@@ -59,12 +65,6 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   `schedule.mode` / `schedule.intervals`.
   `endDate` = last sending day (until its end in the campaign timezone), then the
   campaign completes; `endDate: null` on update removes it.
-  `keepActiveWhenNoLeads: true` = the campaign stays active when it runs out of leads
-  and schedules leads added later automatically (use it for a campaign fed over time);
-  default `false` = it completes once every lead got every step. `endDate` still ends it.
-  Set it before the leads run out: the API cannot restart a completed campaign (dashboard
-  only) and the flag does not reopen it. `/start` needs at least one lead - an empty
-  campaign cannot be started to wait for leads.
 - **Leads**: 1-100 per `POST /v1/campaigns/{cid}/leads`; deduplicated by email per
   campaign; malformed addresses are counted as `invalid`, not rejected.
 - **Merge tags are snake_case**: `{{first_name}}`, `{{last_name}}`, `{{full_name}}`,

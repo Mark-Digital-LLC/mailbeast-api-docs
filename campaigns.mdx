@@ -95,10 +95,11 @@ added after that are not sent until someone restarts the campaign in the
 dashboard - the API cannot restart a completed campaign. If
 leads keep arriving over time - for example an automation that calls
 `POST /v1/campaigns/{id}/leads` every day - set
-`"keepActiveWhenNoLeads": true` in `schedule`:
+`"keepActiveWhenNoLeads": true` in `settings` (in the dashboard: Settings →
+Advanced → Campaign Completion):
 
 ```json
-"schedule": { "timezone": "America/New_York", "keepActiveWhenNoLeads": true }
+"settings": { "keepActiveWhenNoLeads": true }
 ```
 
 The campaign then stays `active` when it runs out of leads and starts
@@ -198,6 +199,7 @@ the defaults below.
 | `newLeadsRatio` | `80` | Percent (0-100) of daily sending that goes to first emails for new leads; the rest is follow-ups. `0` contacts no new leads. |
 | `abTestingOptimization` | `false` | Keep the best-replying variant of each step automatically (see above). |
 | `hubspotSyncEnabled` | `true` | Let the recurring HubSpot sync add contacts to this campaign (only matters when HubSpot is connected). |
+| `keepActiveWhenNoLeads` | `false` | Keep the campaign active when it runs out of leads and schedule leads added later (see [Campaigns that keep receiving leads](#campaigns-that-keep-receiving-leads)). |
 
 The text modes follow the dashboard's rules: `sendAsTextOnly` and
 `sendFirstAsText` exclude each other - turning one on turns the other off, and
@@ -243,7 +245,7 @@ The response returns the created campaign plus a lead-ingest summary:
 Drive the send lifecycle through explicit routes - `/start`, `/pause`, or `/resume`.
 To end a campaign, pause it (or delete it); completion otherwise happens
 automatically when the end date passes or every lead has been sent (unless
-`schedule.keepActiveWhenNoLeads` is on - then only the end date completes it).
+`settings.keepActiveWhenNoLeads` is on - then only the end date completes it).
 
 ```bash
 curl -X POST https://api.mailbeast.ai/v1/campaigns/{id}/start \

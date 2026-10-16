@@ -8563,11 +8563,6 @@
             "format": "date-time",
             "nullable": true,
             "description": "ISO-8601 end: the campaign sends until the end of that day (campaign timezone), then completes. Omit to run indefinitely; on update, `null` removes the end date."
-          },
-          "keepActiveWhenNoLeads": {
-            "type": "boolean",
-            "example": true,
-            "description": "Keep the campaign active when it runs out of leads; new leads added later are scheduled automatically. Default false. With `false`, the campaign completes once every lead has received every step. `endDate` still completes the campaign either way."
           }
         }
       },
@@ -8665,6 +8660,11 @@
             "type": "boolean",
             "example": false,
             "description": "A/B auto-optimization: once every active variant of a step has at least 1000 sends, keep the variant with the best reply rate and switch the others off. Only matters for steps with several `variants`. Default `false`."
+          },
+          "keepActiveWhenNoLeads": {
+            "type": "boolean",
+            "example": true,
+            "description": "Keep the campaign active when it runs out of leads; new leads added later are scheduled automatically. Default false. With `false`, the campaign completes once every lead has received every step. `schedule.endDate` still completes the campaign either way."
           },
           "hubspotSyncEnabled": {
             "type": "boolean",
@@ -8893,11 +8893,6 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
-          },
-          "keepActiveWhenNoLeads": {
-            "type": "boolean",
-            "example": false,
-            "description": "true → the campaign stays active when it runs out of leads and schedules new leads as they are added; false → it completes once every lead has received every step."
           }
         },
         "required": [
@@ -8906,8 +8901,7 @@
           "timezone",
           "sendingMinutesStart",
           "sendingMinutesEnd",
-          "dailyLimit",
-          "keepActiveWhenNoLeads"
+          "dailyLimit"
         ]
       },
       "CampaignSettingsView": {
@@ -8999,6 +8993,11 @@
             "example": false,
             "description": "A/B auto-optimization: keep the best-replying variant of each step."
           },
+          "keepActiveWhenNoLeads": {
+            "type": "boolean",
+            "example": false,
+            "description": "true → the campaign stays active when it runs out of leads and schedules new leads as they are added; false → it completes once every lead has received every step."
+          },
           "hubspotSyncEnabled": {
             "type": "boolean",
             "example": true,
@@ -9024,6 +9023,7 @@
           "autoBlacklistOnUnsubscribe",
           "newLeadsRatio",
           "abTestingOptimization",
+          "keepActiveWhenNoLeads",
           "hubspotSyncEnabled"
         ]
       },
