@@ -14,9 +14,10 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
 
 - REST API: `https://api.mailbeast.ai/v1/...`, header `Authorization: Bearer mb_live_…`.
   The key decides the workspace - never put an organization id in the path.
-- MCP server: `https://mcp.mailbeast.ai/mcp` with the same key as a Bearer header,
-  or `https://mcp.mailbeast.ai/mcp/<key>` for clients that only take a URL. It lists
-  only the tools the key's scopes allow.
+- MCP server: `https://mcp.mailbeast.ai/mcp`. AI apps connect by signing in (OAuth -
+  the user picks the workspace and read-only or read + write); scripts send the same
+  API key as a Bearer header. Never put a key in the URL. It lists only the tools
+  the connection's permissions allow.
 - API access requires the Pro+ plan or an enterprise contract (`403` otherwise).
 - Scopes are `resource:action` (`campaigns:read`, `leads:write`, `emails:send`, …)
   plus wildcards (`campaigns:all`, `all:read`, `all:all`). `apikeys:manage` is never

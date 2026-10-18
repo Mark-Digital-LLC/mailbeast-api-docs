@@ -1,30 +1,158 @@
 ---
 title: MCP server
-description: Let Claude, ChatGPT, Cursor and other AI agents run your MailBeast workspace.
+description: Connect Claude, ChatGPT, Cursor and other AI assistants to your MailBeast workspace.
 ---
 
-The MailBeast MCP server lets an AI assistant work in your workspace: create
-campaigns, add leads, check mailboxes and warmup, read and answer replies, and pull
-analytics - by asking in plain language.
+The MailBeast MCP server lets an AI assistant work in your workspace: build and
+launch campaigns, add leads, check mailboxes and warmup, read and answer replies,
+and pull analytics - by asking in plain language.
 
 ```
 https://mcp.mailbeast.ai/mcp
 ```
 
-It uses the same [API key](/authentication) as the REST API, with the same scopes,
-plan access (Pro+ and enterprise) and [rate limit](/authentication#rate-limits) - tool
-calls count against it like direct API requests. The assistant only sees the tools
-your key's scopes allow - a read-only key gets read-only tools.
+Add this URL to your AI app and sign in with your MailBeast account. You choose the
+workspace and what the assistant may do; no API key to copy.
 
-<Note>
-Create a **separate key for MCP** in [Settings → API Keys](https://app.mailbeast.ai/settings/api). You can delete it at any time
-without touching your other integrations.
-</Note>
+## Requirements
 
-## Connect
+- A MailBeast workspace on the **Pro+** plan (or an enterprise plan with API access) -
+  the same access as the [REST API](/authentication).
+- You are an **owner or admin** of that workspace. Other roles can't connect apps.
+- To send email (campaigns, replies, test emails): at least one connected sending mailbox.
+- An AI app that supports remote MCP servers: Claude (web, desktop, mobile, Claude
+  Code), ChatGPT, Cursor, or any other MCP client that speaks Streamable HTTP and OAuth.
 
-The server speaks Streamable HTTP. Pass the key as a header, or - for apps that only
-take a URL - in the path.
+## How connecting works
+
+<Steps>
+  <Step title="Add the server">
+    Add `https://mcp.mailbeast.ai/mcp` in your AI app (per-app steps below).
+  </Step>
+  <Step title="Sign in">
+    The app opens a MailBeast page in your browser. Sign in if you aren't already.
+  </Step>
+  <Step title="Choose workspace and permissions">
+    Pick the workspace, then the permissions: viewing campaigns, leads, mailboxes,
+    inbox and analytics is always included, and **Make changes and send email** is on
+    by default - switch it off if the assistant should only view. The page shows which
+    app is asking and where you will be sent back.
+  </Step>
+  <Step title="Allow access">
+    Select **Allow access**. You return to the app and the MailBeast tools are ready.
+  </Step>
+</Steps>
+
+Behind the scenes this is standard OAuth 2.1 with PKCE: the app discovers our sign-in
+from the server's `401` response and its
+[metadata](https://mcp.mailbeast.ai/.well-known/oauth-protected-resource/mcp). Each
+approved connection appears as an API key named **"&lt;App&gt; (MCP)"** - for example
+"Claude (MCP)" - in [Settings → API Keys](https://app.mailbeast.ai/settings/api).
+
+## Connect your app
+
+<Tabs>
+  <Tab title="Claude">
+    Add it on claude.ai or in Claude Desktop; it then works in the Claude mobile apps too.
+
+    1. Open **Customize → Connectors** ([claude.ai/customize/connectors](https://claude.ai/customize/connectors)).
+    2. Select **Add custom connector**, name it `MailBeast` and enter
+       `https://mcp.mailbeast.ai/mcp`. Leave the OAuth client ID and secret empty.
+    3. Select **Add**, then **Connect**, and approve access in the browser.
+    4. In a chat, turn MailBeast on under **+ → Connectors**.
+
+    On **Team and Enterprise** plans an organization Owner first adds the connector in
+    **Organization settings → Connectors** (**Add → Custom**, same URL); then each
+    member opens **Customize → Connectors** and selects **Connect**.
+  </Tab>
+  <Tab title="ChatGPT">
+    1. Open [chatgpt.com/plugins](https://chatgpt.com/plugins).
+    2. Select **+**, then **Add custom MCP server**. Name it `MailBeast`.
+    3. Under **Connection**, enter `https://mcp.mailbeast.ai/mcp` and choose **OAuth**
+       for authentication.
+    4. Confirm the risk notice and select **Create as a plugin**, then approve access
+       in the browser.
+    5. In a chat, type `@MailBeast` to use it.
+
+    Custom MCP servers in ChatGPT depend on your plan and workspace settings. On
+    Business, only workspace admins and owners can add them; on Pro, ChatGPT connects
+    custom servers for reading only. See
+    [OpenAI's help article](https://help.openai.com/en/articles/12584461).
+  </Tab>
+  <Tab title="Claude Code">
+    ```bash
+    claude mcp add --transport http mailbeast https://mcp.mailbeast.ai/mcp
+    ```
+
+    Start Claude Code, run `/mcp`, select **mailbeast** and **Authenticate**. Your
+    browser opens; approve access and return to the terminal.
+  </Tab>
+  <Tab title="Cursor">
+    <a href="https://cursor.com/link/mcp/install?name=MailBeast&config=eyJ1cmwiOiJodHRwczovL21jcC5tYWlsYmVhc3QuYWkvbWNwIn0%3D">
+      <img src="https://cursor.com/deeplink/mcp-install-dark.png" alt="Add MailBeast MCP server to Cursor" height="32" />
+    </a>
+
+    Or add it to `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project):
+
+    ```json
+    {
+      "mcpServers": {
+        "MailBeast": {
+          "url": "https://mcp.mailbeast.ai/mcp"
+        }
+      }
+    }
+    ```
+
+    In **Cursor Settings → MCP**, MailBeast shows **Needs login** - select it and
+    approve access in the browser.
+  </Tab>
+</Tabs>
+
+## Permissions
+
+| You approve | The assistant can | Behind it |
+| --- | --- | --- |
+| **View** (always included) | Read campaigns, sequences, leads, mailboxes and their health, emails and replies, analytics, Lead Finder searches, plan usage | API key with `all:read` |
+| **View + Make changes and send email** | Everything above, plus: create, change, start, pause and delete campaigns; add, update and delete leads; change, pause and remove mailboxes; connect Google / Microsoft mailboxes by link; mark conversations read; reply to and forward emails; send test emails | API key with `all:all` |
+
+**Read-only means read-only**: the assistant can't change anything or send email. It
+still sees the content it reads - your emails, replies and lead data - and passes it
+to the AI app you use.
+
+Whatever you approve, the assistant can't:
+
+- create or see API keys, or change your plan and billing;
+- see any password - over a sign-in connection it doesn't accept SMTP/IMAP passwords
+  at all (connect those mailboxes in the dashboard);
+- go beyond your workspace's plan limits and the [rate limit](/authentication#rate-limits) -
+  tool calls count against it like direct API requests (120 per minute per workspace).
+
+To change permissions, connect again with the other choice and delete the old
+"(MCP)" key.
+
+## Disconnect
+
+- **In MailBeast** - delete the app's key ("Claude (MCP)", "ChatGPT (MCP)", …) in
+  [Settings → API Keys](https://app.mailbeast.ai/settings/api). Access ends
+  immediately: the app's next call is refused and it has to sign in again.
+- **In the app** - remove the connector (Claude: **Customize → Connectors → … →
+  Remove**; ChatGPT: remove the plugin in **Plugins**; Claude Code: `claude mcp remove
+  mailbeast`; Cursor and other clients: remove it from the MCP settings or config file).
+
+Removing the connector in the app alone may leave the key in MailBeast - delete it
+there to revoke access for sure.
+
+## Connect with an API key
+
+For scripts, CI, and clients without OAuth sign-in. Create a key in
+[Settings → API Keys](https://app.mailbeast.ai/settings/api) - a **separate key for
+MCP**, with only the scopes you need (`all:read` for read-only, `all:all` for
+everything) - and send it as a header:
+
+```
+Authorization: Bearer mb_live_…
+```
 
 <Tabs>
   <Tab title="Claude Code">
@@ -37,7 +165,7 @@ take a URL - in the path.
     ```json
     {
       "mcpServers": {
-        "mailbeast": {
+        "MailBeast": {
           "url": "https://mcp.mailbeast.ai/mcp",
           "headers": { "Authorization": "Bearer mb_live_…" }
         }
@@ -45,62 +173,132 @@ take a URL - in the path.
     }
     ```
   </Tab>
-  <Tab title="claude.ai / Claude Desktop / ChatGPT">
-    Add a custom connector (Claude: Settings → Connectors) with the URL that
-    carries your key:
-
-    ```
-    https://mcp.mailbeast.ai/mcp/mb_live_…
-    ```
-
-    <Warning>
-    This URL **is** your API key. Don't share it, paste it in chats or commit it.
-    If it leaks, delete the key in Settings → API Keys.
-    </Warning>
-  </Tab>
 </Tabs>
 
-## What the assistant can do
+The assistant sees only the tools the key's [scopes](/authentication#scopes) allow.
+A key connection also offers `connect_mailboxes` (SMTP/IMAP with passwords) and
+credential changes in `update_mailbox`, which sign-in connections don't.
 
-| Area | Tools |
-| --- | --- |
-| Workspace | `get_workspace` - plan and remaining limits |
-| Mailboxes | `list_mailboxes`, `get_mailbox`, `connect_mailboxes`, `start_oauth_connect`, `check_oauth_connect`, `update_mailbox`, `pause_mailbox`, `resume_mailbox`, `bulk_update_mailboxes`, `delete_mailbox` |
-| Campaigns | `list_campaigns`, `get_campaign`, `create_campaign`, `update_campaign`, `send_test_email`, `start_campaign`, `pause_campaign`, `resume_campaign`, `delete_campaign` |
-| Leads | `add_leads`, `list_leads`, `get_lead`, `find_lead_by_email`, `update_lead`, `bulk_update_leads`, `delete_leads` |
-| Emails | `list_emails`, `get_email`, `count_unread_emails`, `reply_to_email`, `forward_email`, `mark_thread_read` |
-| Analytics | `get_campaign_analytics`, `get_workspace_analytics` |
-| Lead Finder | `list_lead_searches`, `get_lead_search` |
+<Warning>
+Never put an API key in the server URL. Older setups that used a URL containing the
+key keep working for now, but switch them to sign-in or the header above and delete
+that key - URLs end up in logs, browser history and screenshots.
+</Warning>
 
-Every tool calls the matching endpoint of the REST API (see the API Reference tab) -
-the MCP server adds no extra permissions.
+## Tools
+
+**Access** shows what a tool needs: **Read** works on every connection; **Write**
+needs *Make changes and send email*; **Sends email** needs *Make changes and send
+email* and sends real email to real recipients. Every tool calls the matching endpoint of the REST API (see the API
+Reference tab) - the MCP server adds no permissions of its own.
+
+### Workspace
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `get_workspace` | Workspace name and timezone, plan, and usage against every plan limit | Read |
+
+### Mailboxes
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `list_mailboxes` | Sending mailboxes with status, health score, warmup and limits | Read |
+| `get_mailbox` | One mailbox: status and why it last failed, warmup, limits; optionally the latest connection test | Read |
+| `start_oauth_connect` | Starts connecting a Google Workspace or Microsoft 365 mailbox: returns a link you open to sign in - no password | Write |
+| `check_oauth_connect` | Checks whether that sign-in finished | Read |
+| `update_mailbox` | Changes sender name, daily cap, sending gap, signature, reply-to, BCC, tracking domain, warmup, language | Write |
+| `pause_mailbox` / `resume_mailbox` | Stops a mailbox from sending / brings it back (a failed one gets a fresh connection test) | Write |
+| `bulk_update_mailboxes` | One change - status or shared settings - for up to 1000 mailboxes | Write |
+| `delete_mailbox` | Removes a mailbox from the workspace | Write |
+| `connect_mailboxes` | Connects SMTP/IMAP mailboxes with passwords - **API key connections only** | Write |
+
+### Campaigns
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `list_campaigns` | Campaigns with status and lead count | Read |
+| `get_campaign` | One campaign: schedule, settings, metrics, mailboxes, every sequence step and A/B variant, whether it's inside its sending window | Read |
+| `create_campaign` | Creates a campaign as a **draft** (nothing is sent): schedule, settings, sequence with A/B variants, tags, lead emails | Write |
+| `update_campaign` | Changes a campaign; a new sequence, mailbox list or tag list replaces the current one | Write |
+| `send_test_email` | Sends one preview of a sequence step to one address (12 per day per workspace) | **Sends email** |
+| `start_campaign` | Starts sending a draft campaign to its leads on its schedule | **Sends email** |
+| `pause_campaign` | Pauses a campaign - nothing more is sent until it's resumed | Write |
+| `resume_campaign` | Resumes a paused campaign - sending continues on its schedule | **Sends email** |
+| `delete_campaign` | Permanently deletes a campaign and stops its sending | Write |
+
+### Leads
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `add_leads` | Adds up to 100 leads per call to a campaign (deduplicated by email; counts toward monthly imports) | Write |
+| `list_leads` | A campaign's leads with status and engagement (opened, clicked, replied) | Read |
+| `get_lead` | One lead with custom fields and sequence progress | Read |
+| `find_lead_by_email` | Finds leads by email across all campaigns | Read |
+| `update_lead` | Changes a lead's fields, tags, custom fields or status | Write |
+| `bulk_update_leads` | Sets a status or adds/removes tags on up to 1000 leads | Write |
+| `delete_leads` | Deletes leads from a campaign by ids, by filter, or all | Write |
+
+### Emails
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `list_emails` | Emails across all mailboxes (unified inbox), newest first, without bodies | Read |
+| `get_email` | One email with its body as plain text; `includeHtml: true` adds the HTML version (returned anyway when the email has no text part; `htmlOmitted` marks that it was left out). Bodies over 25,000 characters are cut and marked `bodyTruncated` | Read |
+| `count_unread_emails` | Number of unread emails | Read |
+| `reply_to_email` | Sends a reply in the conversation, from the mailbox that owns it | **Sends email** |
+| `forward_email` | Forwards an email to recipients you choose | **Sends email** |
+| `mark_thread_read` | Marks a conversation as read | Write |
+
+### Analytics and Lead Finder
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `get_campaign_analytics` | A campaign's sends, opens, clicks, replies, bounces and rates, by mailbox, step or bounce type, optionally over time | Read |
+| `get_workspace_analytics` | Totals and rates across all campaigns for a period | Read |
+| `list_lead_searches` / `get_lead_search` | Lead Finder searches and their progress (searches are started in the dashboard) | Read |
 
 ## Safety
 
-- **Real email is marked for confirmation.** `start_campaign`, `resume_campaign`,
-  `send_test_email`, `reply_to_email` and `forward_email` are marked as acting on
-  the outside world, and deletions as destructive. Claude and ChatGPT typically
-  ask you before running such tools - unless you chose to always allow them.
-- **Campaigns are created as drafts.** Starting is always a separate step, so the
-  assistant can show you the sequence and send you a test email first.
-- **An email is never sent twice by a retry.** Calling `reply_to_email`,
-  `forward_email` or `send_test_email` again with exactly the same arguments within
-  24 hours returns the first result (`alreadyDone: true`) - a dropped connection
-  can't send it twice. To send the same test email again on purpose, the assistant
-  passes a new `resend` value.
-  Other tools simply run again, which is harmless for them (pausing twice, adding a
-  lead that already exists). See [Idempotency](/idempotency).
-- **Passwords.** Prefer `start_oauth_connect` for Google Workspace and Microsoft 365
-  mailboxes - it needs no password. SMTP/IMAP passwords passed to
-  `connect_mailboxes` are stored encrypted and never returned.
+- **Campaigns start as drafts.** Starting is always a separate step, so you can review
+  the sequence and get a test email first.
+- **No passwords in chat.** Google Workspace and Microsoft 365 mailboxes connect
+  through `start_oauth_connect` - a link you open yourself. SMTP/IMAP mailboxes are
+  connected in the dashboard (or with an API key connection); passwords are stored
+  encrypted and never returned.
+- **Your AI app receives what the tools return.** Email content, lead data and
+  analytics the assistant reads go to the AI provider you use (Anthropic, OpenAI, …)
+  and are handled under its terms. MailBeast sees only the tool calls, not your
+  conversation. See our [Privacy Policy](https://mailbeast.ai/privacy).
+- **Treat incoming emails as untrusted.** A reply from a lead can contain text written
+  to steer an AI assistant. Check what the assistant proposes before you approve a
+  send, a deletion or a bulk change.
+
+## Troubleshooting
+
+| Symptom | What to do |
+| --- | --- |
+| "MCP is available on the Pro+ plan" next to a workspace | MCP needs Pro+ (or enterprise with API access). Pick another workspace or change the plan in the dashboard |
+| "Only workspace owners and admins can connect apps" | Ask an owner or admin of that workspace to connect, or to change your role |
+| "This connection request has expired" | A sign-in request lasts 30 minutes and works once - start connecting again from the app |
+| The assistant has no tools to create, change or send | You connected with **Make changes and send email** off. Connect again with it on and delete the old key |
+| `connect_mailboxes` is missing | Sign-in connections don't take passwords. Use `start_oauth_connect` for Google / Microsoft, or connect SMTP/IMAP in the dashboard |
+| The app shows **Reconnect** / "Authorization failed" / `401` | The key was deleted or the connection expired. Connect again |
+| Claude: "Couldn't reach the MCP server" | Check that your network allows `mcp.mailbeast.ai`, then reconnect. If it persists, send us the `ofid_…` reference Claude shows |
+| Claude Code: the browser didn't open | Copy the URL Claude Code prints, open it, approve, then run `/mcp` again |
+| `429` / "Too many requests" | The workspace rate limit (shared with the REST API) - wait for the time in the message |
+| `402` / "plan limit reached" | A plan limit is used up - ask "what's left on my plan?" (`get_workspace`) |
+
+Still stuck? Write to [support@mailbeast.ai](mailto:support@mailbeast.ai) or use the
+chat in the app.
 
 ## Example prompts
 
 - "How many emails can I still send this month?"
-- "Create a 3-step campaign for SaaS founders in Berlin, weekdays 9-17 their time, and send me a test of step 1."
+- "Show me reply rates for my campaigns this week."
+- "Create a 3-step campaign for these leads, weekdays 9-17 their time, and send me a test of step 1."
 - "Which mailboxes are failing and why?"
-- "Show me today's interested replies and draft answers."
-- "Compare reply rates of my last three campaigns."
+- "Summarize today's unread replies and draft answers to the interested ones."
+- "Compare reply rates of my last three campaigns by sequence step."
 
 <Note>
 `https://developer.mailbeast.ai/mcp` is a different server: it searches **this
