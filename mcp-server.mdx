@@ -235,7 +235,9 @@ Reference tab) - the MCP server adds no permissions of its own.
 | `get_lead` | One lead with custom fields and sequence progress | Read |
 | `find_lead_by_email` | Finds leads by email across all campaigns | Read |
 | `update_lead` | Changes a lead's fields, tags, custom fields or status | Write |
-| `bulk_update_leads` | Sets a status or adds/removes tags on up to 1000 leads | Write |
+| `bulk_set_lead_status` | Sets the same status on up to 1000 leads | Write |
+| `bulk_add_lead_tags` | Adds tags to up to 1000 leads | Write |
+| `bulk_remove_lead_tags` | Removes tags from up to 1000 leads | Write |
 | `delete_leads` | Deletes leads from a campaign by ids, by filter, or all | Write |
 
 ### Emails
