@@ -597,7 +597,7 @@
         ]
       },
       "post": {
-        "description": "Add 1-100 leads to a campaign. Each is deduplicated by email within the campaign, provider-detected, and counts toward the monthly-imports quota. The response summarizes the outcome and returns the created leads.\n\nRequires one of the following scopes: `leads:write`, `leads:all`, `all:all`.",
+        "description": "Add 1-100 leads to a campaign. Each is deduplicated by email within the campaign and provider-detected. The response summarizes the outcome and returns the created leads.\n\nRequires one of the following scopes: `leads:write`, `leads:all`, `all:all`.",
         "operationId": "campaignLeads_add",
         "parameters": [
           {
@@ -3513,7 +3513,6 @@
                 "active_contacts",
                 "ai_credits",
                 "email_validation",
-                "monthly_imports",
                 "lead_finder_credits"
               ],
               "type": "string"
@@ -8084,7 +8083,7 @@
           "leads": {
             "minItems": 1,
             "maxItems": 100,
-            "description": "Leads to add (1-100). Each is deduplicated by email within the campaign, provider-detected, and counts toward the monthly-imports quota. Send one element to add a single lead.",
+            "description": "Leads to add (1-100). Each is deduplicated by email within the campaign and provider-detected. Send one element to add a single lead.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LeadInputApiDto"
@@ -9629,8 +9628,7 @@
               "monthly_emails",
               "active_contacts",
               "ai_credits",
-              "email_validation",
-              "monthly_imports"
+              "email_validation"
             ],
             "example": "monthly_emails"
           }
@@ -9653,7 +9651,7 @@
             "description": "Your Email Outreach plan."
           },
           "limits": {
-            "description": "The five Email Outreach plan limits.",
+            "description": "The four Email Outreach plan limits.",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/PlanUsageLimitDto"
@@ -9731,7 +9729,7 @@
         "type": "object",
         "properties": {
           "emailOutreach": {
-            "description": "Your Email Outreach plan usage - the five plan limits.",
+            "description": "Your Email Outreach plan usage - the four plan limits.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/EmailOutreachUsageDto"
@@ -9788,7 +9786,6 @@
               "active_contacts",
               "ai_credits",
               "email_validation",
-              "monthly_imports",
               "lead_finder_credits"
             ],
             "example": "monthly_emails"

@@ -26,9 +26,10 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
 
 ## Rules that matter
 
-- **Check limits before spending.** `GET /v1/usage` (MCP: `get_workspace`). Adding
-  leads spends `monthly_imports`; sending spends `monthly_emails`. A limit hit is
-  `402` with `code: plan_limit_exceeded` and `details` naming the limit.
+- **Check limits before spending.** `GET /v1/usage` (MCP: `get_workspace`). Sending
+  spends `monthly_emails`, and `active_contacts` for a lead emailed for the first time
+  this period. A limit hit is `402` with `code: plan_limit_exceeded` and `details`
+  naming the limit.
 - **Campaigns send from all connected mailboxes** of the workspace by default. To
   send only from specific ones, pass `accounts` with `settings.useAllAccounts: false`.
 - **Create, test, then start.** Create the campaign as a draft, read
