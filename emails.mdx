@@ -53,6 +53,7 @@ curl -G https://api.mailbeast.ai/v1/emails \
       "type": "received",
       "campaignId": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
       "leadId": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31",
+      "subsequence": null,
       "hasAttachments": false,
       "receivedAt": "2026-07-13T09:24:11.000Z",
       "sentAt": null
@@ -69,6 +70,11 @@ Filters combine freely: `mailbox` (comma-separated addresses), `campaignId`,
 
 `search` is full text over subject, preview text and sender address. Quoted
 phrases, `OR` and `-exclude` all work.
+
+An email of a [subsequence](/subsequences) has the main campaign's `campaignId`, the
+lead's id in that campaign as `leadId`, and `subsequence` (`id`, `name`); other emails
+have `"subsequence": null`. So `campaignId` and `leadId` filters include the emails of
+the campaign's subsequences.
 
 ### Conversations without fetching them
 

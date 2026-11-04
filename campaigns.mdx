@@ -34,7 +34,8 @@ limit which mailboxes send.
 
 One call configures everything. The configuration - campaign, schedule, settings,
 sending accounts, tags, and sequence - is **all-or-nothing**: if any part fails
-validation (for example an SMTP account or a tag that isn't yours), nothing is created.
+validation (for example an SMTP account or a tag that isn't yours, or a step after
+the first with a delay under 1 hour), nothing is created.
 `accounts` and `tags` must be your workspace's own. `leads` are best-effort and
 summarized in the response. If `launch: true` is set and the campaign can't start,
 the call still returns `201` - the campaign is created as a draft, with
@@ -82,10 +83,12 @@ curl -X POST https://api.mailbeast.ai/v1/campaigns \
 
 <Note>
 `sendingMinutesStart` / `sendingMinutesEnd` are minutes from midnight in the
-campaign timezone - `540` = 09:00, `1020` = 17:00. Step delays are counted from
+campaign timezone, in 30-minute steps - `540` = 09:00, `1020` = 17:00, `1440` =
+midnight, and the start must be before the end. Step delays are counted from
 the previous step; the first step sends immediately when a lead enters.
 `endDate` is optional: the campaign sends until the end of that day in its
-timezone and then completes. On `PATCH`, `"endDate": null` removes it.
+timezone and then completes, and it can't be before `startDate`. On `PATCH`,
+`"endDate": null` removes it.
 </Note>
 
 ### Campaigns that keep receiving leads
@@ -240,6 +243,16 @@ The response returns the created campaign plus a lead-ingest summary:
 }
 ```
 
+## Subsequences
+
+A campaign can have [subsequences](/subsequences): follow-up flows that start when a
+lead replies, gets a status (e.g. *Interested*, *Out of office*), opens, clicks, or
+finishes the sequence without replying. `GET /v1/campaigns/{id}` lists them as
+`"subsequences": [{ "id", "name", "status" }]` (an empty array when there are none);
+manage them under `/v1/campaigns/{id}/subsequences` and `/v1/subsequences/{id}`.
+A subsequence is not a campaign in this API: it is not in `GET /v1/campaigns`, and
+`/v1/campaigns/{id}…` answers `404` for its id.
+
 ## Launch and control sending
 
 Drive the send lifecycle through explicit routes - `/start`, `/pause`, or `/resume`.
@@ -261,6 +274,10 @@ attempt without them is rejected `400` on `POST /start`; on create-with-`launch`
 the campaign is still created and returned as a draft (`201`, `launched: false`,
 with a `launchError`).
 </Note>
+
+`/start`, `/pause` and `/resume` answer `409 campaign_busy` when the campaign is being
+changed right now - retry after `Retry-After` - and `409 campaign_state_changed` when it
+changed (for example completed) while the request ran - read it again before retrying.
 
 ## Send a test email
 
@@ -373,7 +390,8 @@ curl https://api.mailbeast.ai/v1/campaigns/{id}/status \
 you always end up with exactly the steps and variants you sent; to keep a step's
 A/B test, send its `variants` again). A supplied `sequence` must have **at least
 one step** - an empty array is rejected (`400`); omit the field to leave the
-sequence unchanged.
+sequence unchanged. From step 2 on, `delayDays` + `delayHours` must add up to at
+least 1 hour (`400`, nothing is written).
 
 ```bash
 curl -X PATCH https://api.mailbeast.ai/v1/campaigns/{id} \

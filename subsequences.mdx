@@ -1,0 +1,371 @@
+---
+title: Subsequences
+description: Follow-up flows that start when a lead replies, gets a status, opens, clicks, or finishes a campaign without replying.
+---
+
+A **subsequence** is a follow-up flow inside a campaign. It starts on its own
+when something happens to a lead: the lead replies "Interested", sends an
+out-of-office, clicks your pricing link, or gets through the whole campaign without
+replying. Typical uses: send a calendar link to interested leads, catch up with
+leads after their vacation, ask a wrong contact for a referral, re-engage leads who
+opened but never answered.
+
+How a subsequence behaves:
+
+- **It continues the conversation.** Emails go out from the same mailbox and, when a
+  step's subject is empty, in the same email thread as the conversation with the lead.
+- **Entering ends the main sequence.** The lead's remaining campaign emails are
+  canceled - the lead never gets the campaign's step 3 and the subsequence's first
+  email on the same day. It does not go back to the main sequence.
+- **One at a time, each once.** A lead is in at most one subsequence at a time (a
+  newer match replaces the current one) and enters each subsequence at most once.
+- **Any reply stops it.** A reply from the lead to any email of the campaign, or a
+  manual reply you send from the inbox, ends the lead's subsequence.
+- **Only contacted leads.** A subsequence continues a conversation, so a lead that was
+  never emailed cannot enter. Unsubscribed, bounced and blacklisted leads never enter.
+- **Settings are inherited.** Mailboxes, tracking, unsubscribe link, stop rules and
+  verification skips come from the campaign and follow its changes. A subsequence
+  has its own name, trigger, start, sending limits and emails.
+
+Subsequences need a plan that includes them (**Pro+ and above**); otherwise every
+write except pause and delete answers `403` with code `subsequences_plan_required`.
+
+## Scopes
+
+| Action | Scope |
+| --- | --- |
+| List and read subsequences | `campaigns:read` |
+| Create, update, delete | `campaigns:write` |
+| Turn on / pause / resume, move leads in | `campaigns:lifecycle` |
+
+Turning a subsequence on and moving leads into it lead to real email, so they need
+`campaigns:lifecycle` - the same scope that starts a campaign.
+
+## Create a subsequence
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/campaigns/{campaignId}/subsequences \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Interested - book a call",
+    "settings": {
+      "trigger": {
+        "any": [
+          { "kind": "lead_status", "statuses": ["lead_replied_interested", "lead_replied_meeting_request"] }
+        ],
+        "sources": ["main"],
+        "filters": []
+      },
+      "start": { "mode": "delay", "amount": 1, "unit": "hours" }
+    },
+    "sequence": [
+      { "subject": "", "body": "<p>Hi {{first_name}}, great to hear from you! Pick any time here: [calendar link]</p>" },
+      { "subject": "", "body": "<p>Just making sure my last note did not get buried.</p>", "delayDays": 2 }
+    ]
+  }'
+```
+
+A new subsequence is **off** (`"enabled": false`, `status: "draft"`) - it sends
+nothing until you [turn it on](#turn-on-pause-resume). Name, settings and emails are
+all-or-nothing: if any part is invalid (`400`; `details` names the field when the error is about one),
+nothing is created. The response is the subsequence, the same shape as
+`GET /v1/subsequences/{id}`.
+
+## Settings
+
+`settings` has three sections. Each one you send **replaces** that section as a
+whole; the sections you leave out keep their value (on create: the defaults).
+
+### Trigger - who enters
+
+```json
+"trigger": {
+  "any": [ { "kind": "replied" } ],
+  "sources": ["main"],
+  "filters": [ { "kind": "tag", "op": "has_none", "values": ["competitor"] } ]
+}
+```
+
+`any` holds up to 5 rules - **any** of them enrolls a lead; each kind can be used
+once. `"any": []` means *manual only*: leads enter only when you
+[move them in](#move-leads-in).
+
+| `kind` | A lead enters when | Extra fields |
+| --- | --- | --- |
+| `lead_status` | its status becomes one of `statuses` (from the AI reply classification or set by you) | `statuses`: `lead_replied_interested`, `lead_replied_meeting_request`, `lead_replied_out_of_office`, `lead_replied_wrong_person`, `lead_replied_not_interested`, `lead_replied_uncategorized`, `lead_converted`, `lead_lost` |
+| `replied` | it replies | - |
+| `reply_contains` | its reply contains one of `phrases` (case-insensitive) | `phrases`: 1-20 phrases, 2-100 characters each |
+| `opened` | it opens an email (needs open tracking on the campaign) | `when` |
+| `clicked` | it clicks a link (needs click tracking) | `when`, optional `urlContains` - only links whose URL contains this text |
+| `sequence_finished_no_reply` | it got every email of the main sequence and did not reply within `waitDays` | `waitDays`: 0-60 |
+
+`when` decides what an open or a click does:
+
+- `{ "mode": "after_main_sequence", "waitDays": 0 }` (recommended) - the lead finishes
+  the main sequence first; if it did not reply, it enters `waitDays` later.
+- `{ "mode": "right_away" }` - it enters at the open or click, and the rest of its
+  main sequence is canceled.
+
+`sequence_finished_no_reply` and `"after_main_sequence"` rules watch the main sequence,
+so they need `"main"` in `sources` (`400` otherwise).
+
+`sources` says where the rules listen: `"main"` (the campaign's own sequence) and/or
+ids of **other subsequences of the same campaign**. That chains flows: a
+"Re-engage" subsequence can hand leads that reply "Interested" to a "Book a call"
+one. `trigger` always carries `any`, `sources` and `filters` - pass `[]` when there
+is nothing to list.
+
+`filters` (up to 5) are extra conditions - a lead enters only if **all** match:
+
+| `kind` | Fields |
+| --- | --- |
+| `tag` | `op`: `has_any` / `has_none`, `values`: tag names |
+| `custom_field` | `field`, `op`: `equals` / `contains` / `is_empty` / `is_not_empty`, `value` (for `equals` / `contains`) |
+| `email_provider` | `values`: `google` / `microsoft` / `other` |
+| `engagement` | `op`: `opened_at_least` (with `emails`) / `not_opened` / `clicked` / `not_clicked` |
+| `replied` | `value`: `true` / `false` |
+| `reached_step` | `atLeast`: step number of the main sequence |
+
+Filters are checked when a rule enrolls a lead, not when you move one in, so a manual-only
+subsequence ignores them. A filter no lead entering by the rules could pass is rejected
+(`400`): `replied: false` when every rule fires on a reply (`replied`, `reply_contains`,
+`lead_status` with reply statuses - and Converted - only), `replied: true` when every rule fires only without
+a reply (`sequence_finished_no_reply`, opens and clicks `"after_main_sequence"`),
+`engagement` `not_opened` when every rule is an open or a click (a click counts as an
+open), `not_clicked` when every rule is a click, and `reached_step` past the last step of
+the main sequence. Two filters of the same kind (`replied`, `email_provider`, `reached_step`)
+and filters that rule each other out are rejected too.
+
+When one event matches several subsequences, the lead enters the first by
+`position` (set it with `PATCH`).
+
+### Start - when the first email goes out
+
+| `start` | First email |
+| --- | --- |
+| `{ "mode": "immediately" }` (default) | at the next sending window |
+| `{ "mode": "delay", "amount": 2, "unit": "days" }` | after the delay (`minutes` / `hours` / `days`, up to 365 days) |
+| `{ "mode": "ooo_return", "offsetDays": 1, "withoutDate": { "mode": "delay", "days": 7 }, "maxDaysAhead": 120 }` | `offsetDays` after the return date found in the out-of-office reply; without a date, `days` after the auto-reply (or `{ "mode": "skip" }`); a lead away longer than `maxDaysAhead` days is skipped (`null` = no limit) |
+
+`ooo_return` works only with a single `lead_status` rule for
+`lead_replied_out_of_office`. The first step has no delay of its own - `start` is it.
+Emails still go out only inside the sending schedule.
+
+### Sending
+
+```json
+"sending": { "schedule": "inherit", "dailyLimit": { "mode": "inherit" } }
+```
+
+- `schedule`: `inherit` - the campaign's schedule (default); `custom` - the
+  subsequence keeps its own schedule, edited in the dashboard.
+- `dailyLimit.mode`: `inherit` - its emails count toward the campaign's daily limit
+  and go out first, the campaign's own emails use the rest (default); `custom` - its
+  own limit `value` on top of the campaign's;
+  `unlimited` - only the mailboxes' own daily limits apply.
+
+Whether a subsequence is on is **not** a setting: `settings.enabled` in a request is
+a `400`. Use `/enable` and `/pause`.
+
+## Emails
+
+`sequence` follows the same rules as a campaign's sequence: a step is `subject` +
+`body` (one variant A) or `variants` (an A/B test, up to 5, leads split evenly).
+Two differences:
+
+- **An empty subject (`""`) replies in the same thread** as the conversation with
+  the lead - recommended for the first step. A subject of its own starts a new thread.
+- **Step 1 has no delay** - `delayDays` / `delayHours` must be `0` or left out on it
+  (`400` otherwise); when it goes out is set by `settings.start`. Later steps wait
+  `delayDays` / `delayHours` after the previous one - at least 1 hour (`400` otherwise,
+  nothing is created).
+
+## Turn on, pause, resume
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/subsequences/{id}/enable \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "enrollExisting": true }'
+```
+
+```json Response
+{ "id": "5b2f3c4d-…", "status": "active", "enabled": true, "state": "active", "enrollingExisting": true, "success": true }
+```
+
+- `/enable` turns it on: from now on, leads that match the trigger enter it.
+  `enrollExisting: true` also enrolls the leads that **already** match (in the
+  background) - by a lead status, a reply, a finished main sequence, or an open / a
+  click in the main sequence; `reply_contains` rules and clicks on a URL count only
+  from now on. A lead going through another subsequence right now is not taken out
+  of it. On a **draft** campaign the subsequence stays `draft` while on and
+  starts together with the campaign.
+- `/pause` turns it off: no new leads enter, and leads already in it wait - nothing
+  more is sent to them - until it is resumed. The main sequence keeps sending. If this
+  was the campaign's last subsequence that is on, the main sequence has finished and no
+  lead is still in a subsequence, the campaign then completes on its own (unless it
+  keeps active when leads run out) - and `/enable` needs a restart in the dashboard.
+- `/resume` is the same as `/enable`: waiting leads continue, new ones enter again.
+
+A subsequence needs at least one email to be turned on (`400`). On a **completed**
+campaign `/enable` answers `409 parent_completed` - restart the campaign in the
+dashboard first. A deleted campaign answers `404`.
+
+`state` says in one word why a subsequence is (not) sending:
+
+| `state` | Meaning |
+| --- | --- |
+| `draft` | off |
+| `starts_with_campaign` | on, starts when the draft campaign starts |
+| `active` | on and sending |
+| `paused` | paused by you |
+| `paused_with_campaign` | on, but the campaign is paused - nothing is sent until it resumes |
+| `stopped_campaign_ended` | the campaign completed, was stopped or deleted |
+| `paused_requires_plan` | the plan does not include subsequences |
+| `cant_start` | on, but it cannot start: it has no email, or an email is missing content |
+| `waiting_restart` | on, waiting for the completed campaign to be restarted |
+
+`status` is the subsequence's campaign status: `active` = sending; `draft` / `paused` = not sending right
+now - it can still be on and wait for the campaign to start or restart; `enabled` and `state` tell which.
+
+## Move leads in
+
+Move leads of the campaign into a subsequence by hand - by lead id or by email,
+up to 1000 per call:
+
+```bash
+curl -X POST https://api.mailbeast.ai/v1/subsequences/{id}/leads \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "emails": ["jane@acme.com", "sam@globex.com"],
+    "start": { "mode": "delay", "days": 2 }
+  }'
+```
+
+```json Response
+{ "enrolled": 1, "skipped": { "not_contacted": 1 }, "notFound": 0 }
+```
+
+Pass `leadIds` (ids of the **campaign's** leads, from
+`GET /v1/campaigns/{id}/leads`) or `emails`, not both. `start` is `{ "mode": "now" }` (the default),
+`{ "mode": "delay", "days": N }` or `{ "mode": "date", "date": "YYYY-MM-DD" }` - it
+overrides the subsequence's own `settings.start` for these leads.
+
+Moving works whether the subsequence is on or off: into one that is paused or was never
+turned on, the leads wait and start when you `/enable` (or `/resume`) it. Each lead's
+remaining campaign emails are canceled, exactly as when a trigger fires. The response counts who entered, who did not and why, and which ids
+or emails are not leads of the campaign (`notFound`):
+
+| `skipped` reason | Why |
+| --- | --- |
+| `not_contacted` | the lead was never emailed - a subsequence continues a conversation |
+| `already_enrolled` | the lead was in this subsequence before - each lead enters once |
+| `suppressed` | unsubscribed, bounced or blacklisted |
+| `company_replied` | a colleague at the same company replied in this campaign or one of its subsequences, and the campaign stops the company on a reply |
+| `lead_removed` | the lead was removed from the campaign |
+| `not_accepting` | the campaign is not active or paused (draft, completed, stopped or deleted), the subsequence is completed or deleted, or your plan does not include subsequences. A subsequence that is paused or was never turned on still takes leads |
+| `thread_unavailable` | step 1 replies in the same thread (empty subject), but the conversation's thread could not be found - give step 1 a subject of its own |
+
+Treat any other key in `skipped` the same way - the lead did not enter (for example,
+`not_family_lead` when the lead was removed from the campaign while the call ran).
+
+## Read
+
+```bash
+# all subsequences of a campaign, in position order
+curl https://api.mailbeast.ai/v1/campaigns/{campaignId}/subsequences \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+
+# one subsequence
+curl https://api.mailbeast.ai/v1/subsequences/{id} \
+  -H "Authorization: Bearer $MAILBEAST_API_KEY"
+```
+
+The list answers `{ "data": [ … ] }` - an array of subsequences; one subsequence is the object itself:
+
+```json Response
+{
+  "id": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+  "campaignId": "a7d4e2f1-08b3-4c65-9e7a-1b2c3d4e5f60",
+  "name": "Interested - book a call",
+  "position": 1,
+  "status": "active",
+  "enabled": true,
+  "state": "active",
+  "settings": {
+    "trigger": { "any": [ { "kind": "lead_status", "statuses": ["lead_replied_interested"] } ], "sources": ["main"], "filters": [] },
+    "start": { "mode": "delay", "amount": 1, "unit": "hours" },
+    "sending": { "schedule": "inherit", "dailyLimit": { "mode": "inherit" } }
+  },
+  "sequence": [
+    { "id": "9a8b7c6d-…", "subject": "", "body": "<p>Hi {{first_name}}, …</p>", "delayDays": 0, "delayHours": 0,
+      "variants": [ { "id": "550e8400-…", "label": "A", "subject": "", "body": "<p>…</p>", "isActive": true } ] }
+  ],
+  "counters": { "entered": 42, "waiting": 3, "inProgress": 12, "replied": 9, "positive": 5, "ended": 30 },
+  "nextStartAt": "2026-10-29T09:00:00.000Z",
+  "createdAt": "2026-10-28T08:00:00.000Z"
+}
+```
+
+`entered = inProgress + ended`: an entry ends when its emails are all sent, the lead
+replies, its status changes, it is removed or moves to another subsequence. `waiting`
+(part of `inProgress`) is leads whose first email is not due yet. `positive` counts leads
+that replied and whose status is positive now, when the lead became positive during this
+subsequence - a subset of `replied`. A lead that turned positive in the main sequence
+counts there, not here.
+
+The campaign lists its subsequences too - `GET /v1/campaigns/{id}` has
+`"subsequences": [{ "id", "name", "status" }]`, and
+`GET /v1/campaigns/{id}/analytics` adds `subsequences` with entered / in progress /
+replied / positive counters per subsequence (all time). The campaign's analytics
+`totals` cover the campaign with its subsequences by default; `scope=main` gives the main
+sequence and `subsequenceId={id}` one subsequence (see [Analytics](/analytics)).
+
+<Note>
+A subsequence id is **not** a campaign id in the API: it does not appear in
+`GET /v1/campaigns`, and every `/v1/campaigns/{id}…` route answers `404` for it
+(`/v1/leads/search` does not return subsequence lead rows either - it returns the
+lead's row in the campaign). Use `/v1/subsequences/{id}`.
+
+Emails of a subsequence in [`/v1/emails`](/emails) come with
+the **main campaign's** `campaignId` and the lead's id in that campaign, plus a
+`subsequence` object (`id`, `name`) - so every id you receive works with
+`/v1/campaigns/{id}…`.
+</Note>
+
+## Update and delete
+
+`PATCH /v1/subsequences/{id}` changes only what you send: `name`, `position`, any
+`settings` section, `sequence`. A sent section or `sequence` replaces the current
+one; step and variant ids change when `sequence` is replaced. The emails of a
+running subsequence cannot be replaced - pause it first (`400`, nothing is written; see
+[`/pause`](#turn-on-pause-resume) for what turning off the last subsequence that is on does).
+Sections are written one after another, as with `PATCH /v1/campaigns/{id}`.
+
+`DELETE /v1/subsequences/{id}` deletes it: its scheduled emails are canceled, and
+leads in it do not return to the main sequence. Deleting the campaign's last subsequence
+that is on can let a campaign whose main sequence has finished complete, as `/pause` does.
+
+## Errors
+
+Errors use the usual envelope. Codes specific to subsequences:
+
+| Status | `code` | Meaning |
+| --- | --- | --- |
+| `400` | `validation_failed` | invalid settings or emails - `details` names the field when there is one, e.g. `settings.trigger.sources: …`; other checks (a loop of sources, a source from another campaign) explain it in `message` |
+| `403` | `subsequences_plan_required` | the plan does not include subsequences |
+| `404` | `not_found` | no such subsequence in your workspace (or a campaign id was used) |
+| `409` | `campaign_busy` | the campaign is being changed right now - retry in a few seconds (`Retry-After` is set) |
+| `409` | `campaign_state_changed` | the campaign changed (paused, completed, deleted) while the request ran - read it again |
+| `409` | `parent_completed` | `/enable` on a completed campaign - restart it in the dashboard first |
+| `409` | `family_ended` | the campaign ended (stopped, or deleted while the request ran) |
+| `409` | `subsequence_limit_reached` | the campaign already has as many subsequences as it can - delete one to add another |
+
+## MCP
+
+The [MCP server](/mcp-server) has `list_subsequences`, `create_subsequence`,
+`update_subsequence` and `enroll_in_subsequence`. A subsequence created there is off;
+it is turned on in the [dashboard](https://app.mailbeast.ai) or with
+`POST /v1/subsequences/{id}/enable`.

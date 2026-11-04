@@ -60,15 +60,26 @@ discovery. Docs: https://developer.mailbeast.ai (full page list: `/llms.txt`).
   A/B test). An active campaign's `sequence` can't be replaced - pause it first. `null` =
   field left out, except `schedule.endDate: null` (removes the end date).
 - **Schedule**: one window for all `sendingDays` (`sendingMinutesStart`/`End`, minutes
-  from midnight in `timezone`), or per-day windows via `schedule.intervals`
+  from midnight in `timezone`, 30-minute step, `1440` = midnight, start before end), or per-day windows via `schedule.intervals`
   (`[{ day: 1-7 (Mon-Sun), startMinutes, endMinutes }]`, 30-minute step, no overlaps
   within a day) - that switches the campaign to `mode: "advanced"` and REPLACES all
   windows; `mode: "simple"` switches back. Read the current one from
   `schedule.mode` / `schedule.intervals`.
   `endDate` = last sending day (until its end in the campaign timezone), then the
-  campaign completes; `endDate: null` on update removes it.
+  campaign completes; it can't be before `startDate`; `endDate: null` on update removes it.
 - **Leads**: 1-100 per `POST /v1/campaigns/{cid}/leads`; deduplicated by email per
   campaign; malformed addresses are counted as `invalid`, not rejected.
+- **Subsequences** (follow-up flows of a campaign that start on a lead status, reply,
+  open, click or a finished sequence): `GET|POST /v1/campaigns/{id}/subsequences`,
+  `GET|PATCH|DELETE /v1/subsequences/{id}`, `/enable` / `/pause` / `/resume`, and
+  `POST /v1/subsequences/{id}/leads` (by `leadIds` or `emails` of the campaign). A new
+  one is off. A lead is in one at a time, enters each once, leaves the main sequence
+  when it enters, and gets the emails from the same mailbox; an empty step `subject`
+  replies in the same thread. `settings` = `trigger` / `start` / `sending`, each
+  REPLACED when sent. A subsequence id is not a campaign id (`/v1/campaigns/{id}` → 404);
+  its emails (`/v1/emails`) carry the main campaign's `campaignId`, the
+  lead's id in it and `subsequence: { id, name }`.
+  Pro+ and above (`403 subsequences_plan_required`); `409 campaign_busy` → retry shortly.
 - **Merge tags are snake_case**: `{{first_name}}`, `{{last_name}}`, `{{full_name}}`,
   `{{email}}`, `{{company_name}}`, `{{job_title}}`, `{{website}}`, `{{linkedin_profile}}`,
   `{{location}}`, custom fields as `{{custom_<field>}}` (lead `customFields.industry`
@@ -103,3 +114,6 @@ Every error is `{ "error": { "type", "code", "message", "status", "requestId", "
 `400 validation_failed` (see `details`), `401 unauthenticated`,
 `402 plan_limit_exceeded`, `403 permission_denied` (missing scope or plan),
 `404 not_found`, `409 conflict`, `422 idempotency_key_reused`, `429 rate_limited`.
+Campaign and subsequence writes may answer `409 campaign_busy` (retry after
+`Retry-After`) or `409 campaign_state_changed` (re-read, then retry); subsequence routes
+also `403 subsequences_plan_required` and `409 parent_completed` / `family_ended`.

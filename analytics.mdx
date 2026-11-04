@@ -116,6 +116,67 @@ to *do*. This one can:
 Scrubbing your list will not fix those, and treating them as one number is how a
 deliverability problem hides behind a "normal" bounce rate.
 
+### Subsequences
+
+A campaign with [subsequences](/subsequences) also gets `subsequences` - one entry per
+subsequence, with all-time counters (not limited to the period):
+
+```json
+{
+  "subsequences": [
+    { "id": "5b2f3c4d-…", "name": "Interested - book a call", "status": "active",
+      "entered": 42, "inProgress": 12, "replied": 9, "positive": 5, "positiveRate": 55.6 }
+  ]
+}
+```
+
+`positiveRate` is positive leads among those who replied (`null` when nobody did).
+`excludeOOO=true` applies here too: leads whose status is Out of office are not counted
+in `replied`.
+
+By default the campaign's `totals` and breakdowns cover the campaign **together with its
+subsequences** (deleted subsequences included – their emails were really sent). Nothing is
+counted twice:
+
+- every email event (sent, open, click, reply, bounce, unsubscribe) belongs to the sequence
+  that sent the email;
+- a positive lead, a conversion and its value belong to the sequence whose email the lead
+  replied to. If that subsequence was deleted before the lead's status changed, they count
+  for the main sequence; what was recorded before the deletion stays with the deleted
+  subsequence;
+- a person counts once in the campaign's lead counts, even after going through the main
+  sequence and a subsequence.
+
+So over the campaign's whole life, the main sequence plus every subsequence - deleted ones
+included - adds up to the campaign's `sent`, `delivered`, `bounces`, `unsubscribed`,
+`opens.total`, `clicks.total`, `positiveLeads`, `conversions` and `conversionValue`.
+
+Deleted subsequences are in the campaign's totals only: they are not listed in
+`subsequences`. For a campaign that had a
+deleted subsequence, the main sequence plus the listed subsequences can therefore be lower
+than the campaign's totals - the difference is the deleted subsequences' share.
+
+Lead counts do not add up: `leadsContacted`, `opens.uniqueLeads`, `clicks.uniqueLeads` and
+`replies` (leads who replied, not reply emails) count a person once in each sequence and
+once in the campaign. A lead who replied in the main sequence and in a subsequence is 1 + 1
+across the sequences and 1 in the campaign's `replies`, so the campaign can be lower than
+the sum of its parts.
+
+With `startDate` / `endDate`, opens, clicks and replies count the leads emailed in the period
+and their engagement: for the campaign, anyone it emailed in the period; for one sequence,
+only the leads that sequence emailed. In a period these numbers of the campaign can
+therefore also be higher than the sum of its parts.
+
+| Parameter | Covers |
+| --- | --- |
+| *(none)* or `scope=family` | The campaign with its subsequences. |
+| `scope=main` | The main sequence only. |
+| `subsequenceId={id}` | One subsequence (id from `GET /v1/campaigns/{id}/subsequences`). |
+
+The same parameters work on `/analytics/timeseries`. With `breakdown=sequence`, the steps
+are those of the main sequence, or of the subsequence when `subsequenceId` is set. A
+subsequence id is not accepted as a campaign id here (`404`).
+
 ## Over time
 
 ```bash
@@ -140,6 +201,8 @@ curl "https://api.mailbeast.ai/v1/campaigns/analytics/overview" \
 
 Totals across every campaign, plus `activeCampaigns`, `sendingAccounts`, and the
 highest-volume campaigns. Use it for a top-level view, then drill into a campaign.
+A campaign's emails include its subsequences, and a person is counted once in the lead
+totals even if they went through several sequences of one campaign.
 
 ## Reporting windows and retention
 

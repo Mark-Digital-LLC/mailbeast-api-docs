@@ -2498,7 +2498,7 @@
     },
     "/v1/campaigns/{id}/start": {
       "post": {
-        "description": "Begin sending (or resume a paused campaign). Needs a lead list and a sequence - returns 400 if the campaign has nothing to send.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "description": "Begin sending (or resume a paused campaign). Needs a lead list and a sequence - returns 400 if the campaign has nothing to send. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds. `409 campaign_state_changed` = it changed (for example completed) while the request ran; read it again.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_start",
         "parameters": [
           {
@@ -2685,7 +2685,7 @@
     },
     "/v1/campaigns/{id}/pause": {
       "post": {
-        "description": "Pause an active campaign. In-flight sends finish; nothing new is scheduled.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "description": "Pause an active campaign. In-flight sends finish; nothing new is scheduled. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds. `409 campaign_state_changed` = it changed (for example completed) while the request ran; read it again.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_pause",
         "parameters": [
           {
@@ -2872,7 +2872,7 @@
     },
     "/v1/campaigns/{id}/resume": {
       "post": {
-        "description": "Resume a paused campaign from where it left off. Returns 400 if the workspace has no email account at all; an account that exists but cannot send right now (disconnected, reauthorizing, DNS below the sending floor) does not block the resume.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "description": "Resume a paused campaign from where it left off. Returns 400 if the workspace has no email account at all; an account that exists but cannot send right now (disconnected, reauthorizing, DNS below the sending floor) does not block the resume. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds. `409 campaign_state_changed` = it changed (for example completed) while the request ran; read it again.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
         "operationId": "campaigns_resume",
         "parameters": [
           {
@@ -5551,6 +5551,7 @@
             "name": "campaignId",
             "required": false,
             "in": "query",
+            "description": "Return only emails of this campaign, including the emails of its subsequences.",
             "schema": {
               "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
               "type": "string"
@@ -5570,6 +5571,7 @@
             "name": "leadId",
             "required": false,
             "in": "query",
+            "description": "Return only emails of this campaign lead, including the emails it got in subsequences.",
             "schema": {
               "example": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31",
               "type": "string"
@@ -5790,6 +5792,7 @@
             "name": "campaignId",
             "required": false,
             "in": "query",
+            "description": "Count only emails of this campaign, including the emails of its subsequences.",
             "schema": {
               "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
               "type": "string"
@@ -6872,6 +6875,31 @@
             }
           },
           {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "Which emails and outcomes count. `family` (default): the campaign together with its subsequences – every email, reply and conversion is counted once, and a person is counted once. `main`: the main sequence only. To read a single subsequence, pass `subsequenceId` instead.",
+            "schema": {
+              "default": "family",
+              "example": "family",
+              "type": "string",
+              "enum": [
+                "family",
+                "main"
+              ]
+            }
+          },
+          {
+            "name": "subsequenceId",
+            "required": false,
+            "in": "query",
+            "description": "Only this subsequence of the campaign: its emails and the replies, positive leads and conversions credited to it. Takes precedence over `scope`.",
+            "schema": {
+              "example": "b7e8f9a0-...",
+              "type": "string"
+            }
+          },
+          {
             "name": "interval",
             "required": false,
             "in": "query",
@@ -7012,7 +7040,7 @@
     },
     "/v1/campaigns/{id}/analytics": {
       "get": {
-        "description": "Aggregate engagement for one campaign. Ask for extra breakdowns with `breakdown=smtp,sequence,bounce` – each is an extra query, so request only what you will read.\n\nRequires one of the following scopes: `metrics:read`, `all:read`, `all:all`.",
+        "description": "Aggregate engagement for one campaign – by default together with its subsequences (`scope=main` for the main sequence only, `subsequenceId` for one subsequence). Ask for extra breakdowns with `breakdown=smtp,sequence,bounce` – each is an extra query, so request only what you will read. `sequence` lists the steps of the main sequence, or of the subsequence when `subsequenceId` is set. A campaign with subsequences also gets `subsequences`: entered / in progress / replied / positive per subsequence.\n\nRequires one of the following scopes: `metrics:read`, `all:read`, `all:all`.",
         "operationId": "analytics_getCampaignAnalytics",
         "parameters": [
           {
@@ -7054,6 +7082,31 @@
               "default": false,
               "example": true,
               "type": "boolean"
+            }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "Which emails and outcomes count. `family` (default): the campaign together with its subsequences – every email, reply and conversion is counted once, and a person is counted once. `main`: the main sequence only. To read a single subsequence, pass `subsequenceId` instead.",
+            "schema": {
+              "default": "family",
+              "example": "family",
+              "type": "string",
+              "enum": [
+                "family",
+                "main"
+              ]
+            }
+          },
+          {
+            "name": "subsequenceId",
+            "required": false,
+            "in": "query",
+            "description": "Only this subsequence of the campaign: its emails and the replies, positive leads and conversions credited to it. Takes precedence over `scope`.",
+            "schema": {
+              "example": "b7e8f9a0-...",
+              "type": "string"
             }
           },
           {
@@ -7468,6 +7521,1644 @@
           "Lead Finder"
         ]
       }
+    },
+    "/v1/campaigns/{id}/subsequences": {
+      "get": {
+        "description": "The follow-up flows of a campaign that start on a lead status, a reply, an open, a click or a finished sequence - each with its trigger, start and sending settings, its emails, whether it is on, and counters (entered, in progress, replied, positive).\n\nRequires one of the following scopes: `campaigns:read`, `campaigns:all`, `all:read`, `all:all`.",
+        "operationId": "campaignSubsequences_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Campaign id.",
+            "schema": {
+              "format": "uuid",
+              "example": "a7d4e2f1-08b3-4c65-9e7a-1b2c3d4e5f60",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceListApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "List subsequences of a campaign",
+        "tags": [
+          "Subsequences"
+        ]
+      },
+      "post": {
+        "description": "Create a subsequence of a campaign - OFF (it sends nothing until `POST /v1/subsequences/{id}/enable`). It sends from the same mailbox and in the same thread as the conversation with the lead, and inherits the campaign's mailboxes, tracking and stop rules. Name, settings and emails are all-or-nothing: if any part is invalid, nothing is created. Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds. `409 subsequence_limit_reached` = the campaign already has the maximum number of subsequences.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
+        "operationId": "campaignSubsequences_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Campaign id.",
+            "schema": {
+              "format": "uuid",
+              "example": "a7d4e2f1-08b3-4c65-9e7a-1b2c3d4e5f60",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubsequenceApiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceApiDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Create a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      }
+    },
+    "/v1/subsequences/{id}": {
+      "get": {
+        "description": "One subsequence: trigger, start and sending settings, every email step with its A/B variants, whether it is on and why it is (not) sending, and its counters.\n\nRequires one of the following scopes: `campaigns:read`, `campaigns:all`, `all:read`, `all:all`.",
+        "operationId": "subsequences_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceApiDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Get a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      },
+      "patch": {
+        "description": "Partial update - only what you pass changes. Each `settings` section (`trigger`, `start`, `sending`) and `sequence` REPLACE the current one. The emails of a running subsequence cannot be replaced - pause it first. Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSubsequenceApiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceApiDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Update a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      },
+      "delete": {
+        "description": "Delete a subsequence. Its scheduled emails are canceled; leads in it do not return to the main sequence. Turning off (or deleting) the campaign's last subsequence that is on lets a campaign whose main sequence has finished complete on its own (unless it keeps active when leads run out); /enable then needs a restart in the dashboard. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:write`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSubsequenceApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Delete a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      }
+    },
+    "/v1/subsequences/{id}/enable": {
+      "post": {
+        "description": "Turn a subsequence on: leads that match its trigger from now on enter it and get its emails (real email). With `enrollExisting: true` the leads that already match enter too. On a draft campaign it starts together with the campaign. A completed campaign must be restarted in the dashboard first (`409 parent_completed`); a stopped or deleted one cannot get new subsequence leads (`409 family_ended`). Needs at least one email (400). Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableSubsequenceApiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceLifecycleApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Turn a subsequence on",
+        "tags": [
+          "Subsequences"
+        ]
+      }
+    },
+    "/v1/subsequences/{id}/pause": {
+      "post": {
+        "description": "Turn a subsequence off: no new leads enter, and leads already in it wait (nothing more is sent to them) until it is resumed. The main sequence keeps sending. Turning off (or deleting) the campaign's last subsequence that is on lets a campaign whose main sequence has finished complete on its own (unless it keeps active when leads run out); /enable then needs a restart in the dashboard. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_pause",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceLifecycleApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Pause a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      }
+    },
+    "/v1/subsequences/{id}/resume": {
+      "post": {
+        "description": "Turn a paused subsequence back on - the same as `/enable`: leads that waited continue (real email), new matching leads enter again. `enrollExisting: true` also enrolls the leads that matched while it was off. Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_resume",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableSubsequenceApiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubsequenceLifecycleApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Resume a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      }
+    },
+    "/v1/subsequences/{id}/leads": {
+      "post": {
+        "description": "Move leads of the main campaign into the subsequence, by `leadIds` or `emails` (up to 1000). Their remaining main-sequence emails are canceled and the subsequence emails them instead (real email), from the same mailbox and in the same thread. Only leads that were already emailed can enter, each subsequence once, one subsequence at a time per lead; the response counts who entered and why the others did not. A subsequence that is off (paused or never turned on) takes them too: they wait and start when you turn it on. Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "operationId": "subsequences_enroll",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Subsequence id.",
+            "schema": {
+              "format": "uuid",
+              "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. A unique key you generate (max 255 chars, such as a UUID) that makes this request safe to retry. Retrying with the same key replays the original response instead of repeating the operation. Reusing a key with a different body returns `422`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 255,
+              "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollSubsequenceLeadsApiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollSubsequenceLeadsApiResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body or parameters failed validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "validation_failed",
+                    "message": "One or more fields are invalid.",
+                    "status": 400,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "details": [
+                      "name should not be empty"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authentication_error",
+                    "code": "unauthenticated",
+                    "message": "Missing or invalid API key.",
+                    "status": 401,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The key lacks a required scope, or the plan does not include API access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "authorization_error",
+                    "code": "permission_denied",
+                    "message": "This API key is missing the required scope.",
+                    "status": 403,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The resource does not exist in your workspace.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "not_found",
+                    "message": "Resource not found.",
+                    "status": 404,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.\n\nThe request conflicts with current state - e.g. a request with the same Idempotency-Key is still being processed, or the operation partially applied.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "conflict",
+                    "message": "The request conflicts with an existing resource.",
+                    "status": 409,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "invalid_request_error",
+                    "code": "idempotency_key_reused",
+                    "message": "The Idempotency-Key was already used with a different request body. Use a new key for a new operation.",
+                    "status": 422,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded - retry after the interval in the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "error": {
+                    "type": "rate_limit_error",
+                    "code": "rate_limited",
+                    "message": "Too many requests. Retry after the interval in the Retry-After header.",
+                    "status": 429,
+                    "requestId": "e4f1c0b2-6a3d-4b8e-9f21-0a1b2c3d4e5f",
+                    "retryAfter": 30
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "summary": "Move leads into a subsequence",
+        "tags": [
+          "Subsequences"
+        ]
+      }
     }
   },
   "info": {
@@ -7484,6 +9175,10 @@
     {
       "name": "Campaigns",
       "description": "Create, configure, launch and monitor email campaigns."
+    },
+    {
+      "name": "Subsequences",
+      "description": "Follow-up flows of a campaign that start on a lead status, a reply, an open, a click or a finished sequence - from the same mailbox, in the same thread."
     },
     {
       "name": "Leads",
@@ -8535,15 +10230,17 @@
             "type": "integer",
             "example": 540,
             "minimum": 0,
-            "maximum": 1439,
-            "description": "Send-window start as minutes from midnight (540 = 09:00)."
+            "maximum": 1410,
+            "multipleOf": 30,
+            "description": "Send-window start as minutes from midnight (540 = 09:00). Multiple of 30."
           },
           "sendingMinutesEnd": {
             "type": "integer",
             "example": 1020,
-            "minimum": 0,
-            "maximum": 1439,
-            "description": "Send-window end as minutes from midnight (1020 = 17:00)."
+            "minimum": 30,
+            "maximum": 1440,
+            "multipleOf": 30,
+            "description": "Send-window end as minutes from midnight (1020 = 17:00, 1440 = midnight). Multiple of 30, after the start."
           },
           "dailyLimit": {
             "type": "integer",
@@ -8561,7 +10258,7 @@
             "type": "string",
             "format": "date-time",
             "nullable": true,
-            "description": "ISO-8601 end: the campaign sends until the end of that day (campaign timezone), then completes. Omit to run indefinitely; on update, `null` removes the end date."
+            "description": "ISO-8601 end: the campaign sends until the end of that day (campaign timezone), then completes. Not before `startDate`. Omit to run indefinitely; on update, `null` removes the end date."
           }
         }
       },
@@ -8726,7 +10423,7 @@
             "example": 0,
             "minimum": 0,
             "maximum": 365,
-            "description": "Days to wait before this step (0 for the first email)."
+            "description": "Days to wait before this step (0 for the first email). From step 2 on, `delayDays` + `delayHours` must add up to at least 1 hour."
           },
           "delayHours": {
             "type": "integer",
@@ -8872,12 +10569,12 @@
           "sendingMinutesStart": {
             "type": "number",
             "example": 540,
-            "description": "Minutes from midnight."
+            "description": "Minutes from midnight in the campaign timezone (540 = 09:00)."
           },
           "sendingMinutesEnd": {
             "type": "number",
             "example": 1020,
-            "description": "Minutes from midnight."
+            "description": "Minutes from midnight in the campaign timezone (1020 = 17:00, 1440 = midnight)."
           },
           "dailyLimit": {
             "type": "number",
@@ -9166,6 +10863,40 @@
           "color"
         ]
       },
+      "CampaignSubsequenceSummaryView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c",
+            "description": "Subsequence id - use it with `/v1/subsequences/{id}`."
+          },
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "paused",
+              "stopped",
+              "completed",
+              "failed"
+            ],
+            "example": "active",
+            "description": "Campaign status of the subsequence: `active` = sending. `draft` / `paused` = not sending right now - it can still be turned on and wait for the campaign to start or restart; `enabled` and `state` in `GET /v1/subsequences/{id}` tell which."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
       "CampaignApiDto": {
         "type": "object",
         "properties": {
@@ -9224,6 +10955,13 @@
               "$ref": "#/components/schemas/TagApiDto"
             }
           },
+          "subsequences": {
+            "description": "Subsequences of this campaign (follow-up flows that start on a status, reply, open, click or a finished sequence), in position order. Empty when it has none. Manage them under `/v1/subsequences`.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignSubsequenceSummaryView"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -9243,6 +10981,7 @@
           "settings",
           "metrics",
           "tags",
+          "subsequences",
           "createdAt",
           "updatedAt"
         ]
@@ -11390,6 +13129,23 @@
           "name"
         ]
       },
+      "EmailSubsequenceRefDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c"
+          },
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
       "EmailApiDto": {
         "type": "object",
         "properties": {
@@ -11472,12 +13228,24 @@
           "campaignId": {
             "type": "string",
             "nullable": true,
-            "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c"
+            "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
+            "description": "Campaign of the email. For an email of a subsequence - its main campaign (see `subsequence`)."
           },
           "leadId": {
             "type": "string",
             "nullable": true,
-            "example": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31"
+            "example": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31",
+            "description": "Lead of the email in that campaign (`/v1/campaigns/{campaignId}/leads/{leadId}`). `null` when the lead no longer exists."
+          },
+          "subsequence": {
+            "nullable": true,
+            "description": "Set when the email belongs to a subsequence of the campaign (`/v1/subsequences/{id}`); `null` otherwise.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EmailSubsequenceRefDto"
+              }
+            ]
           },
           "hasAttachments": {
             "type": "boolean",
@@ -11510,6 +13278,7 @@
           "type",
           "campaignId",
           "leadId",
+          "subsequence",
           "hasAttachments",
           "receivedAt",
           "sentAt"
@@ -11668,12 +13437,24 @@
           "campaignId": {
             "type": "string",
             "nullable": true,
-            "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c"
+            "example": "c1f3b0a2-6d4e-4f8b-9a1c-2e5d7f0a3b6c",
+            "description": "Campaign of the email. For an email of a subsequence - its main campaign (see `subsequence`)."
           },
           "leadId": {
             "type": "string",
             "nullable": true,
-            "example": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31"
+            "example": "9d4e2f10-5b6a-4c73-8e19-0f2a7c4d8b31",
+            "description": "Lead of the email in that campaign (`/v1/campaigns/{campaignId}/leads/{leadId}`). `null` when the lead no longer exists."
+          },
+          "subsequence": {
+            "nullable": true,
+            "description": "Set when the email belongs to a subsequence of the campaign (`/v1/subsequences/{id}`); `null` otherwise.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EmailSubsequenceRefDto"
+              }
+            ]
           },
           "hasAttachments": {
             "type": "boolean",
@@ -11714,6 +13495,7 @@
           "type",
           "campaignId",
           "leadId",
+          "subsequence",
           "hasAttachments",
           "receivedAt",
           "sentAt",
@@ -12432,6 +14214,69 @@
           "byCategory"
         ]
       },
+      "CampaignSubsequenceAnalyticsView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c"
+          },
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "paused",
+              "stopped",
+              "completed",
+              "failed"
+            ],
+            "example": "active",
+            "description": "Campaign status of the subsequence: `active` = sending. `draft` / `paused` = not sending right now - it can still be turned on and wait for the campaign to start or restart; `enabled` and `state` in `GET /v1/subsequences/{id}` tell which."
+          },
+          "entered": {
+            "type": "number",
+            "example": 42,
+            "description": "Leads that entered (all time)."
+          },
+          "inProgress": {
+            "type": "number",
+            "example": 12,
+            "description": "Leads in it right now."
+          },
+          "replied": {
+            "type": "number",
+            "example": 9,
+            "description": "Leads that replied to its emails. With `excludeOOO=true`, leads whose status is Out of office are not counted."
+          },
+          "positive": {
+            "type": "number",
+            "example": 5,
+            "description": "Leads that replied and whose status in the subsequence is positive now (interested, meeting request, converted) - a subset of replied."
+          },
+          "positiveRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 55.6,
+            "description": "Positive among those who replied, in percent; null when nobody replied."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "entered",
+          "inProgress",
+          "replied",
+          "positive",
+          "positiveRate"
+        ]
+      },
       "CampaignAnalyticsApiResponseDto": {
         "type": "object",
         "properties": {
@@ -12466,6 +14311,13 @@
                 "$ref": "#/components/schemas/BounceBreakdownView"
               }
             ]
+          },
+          "subsequences": {
+            "description": "Present when the campaign has subsequences: per-subsequence counters, all time (not limited to the period). `totals` and the breakdowns follow `scope` / `subsequenceId` (the whole campaign by default).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignSubsequenceAnalyticsView"
+            }
           }
         },
         "required": [
@@ -12680,6 +14532,850 @@
           "progress",
           "createdAt",
           "updatedAt"
+        ]
+      },
+      "SubsequenceEngagementTimingApiDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "after_main_sequence",
+              "right_away"
+            ],
+            "example": "after_main_sequence",
+            "description": "`after_main_sequence` (recommended): the lead finishes the main sequence first; if it did not reply but opened / clicked, it enters `waitDays` later. `right_away`: it enters at the open / click, and the rest of its main sequence is canceled."
+          },
+          "waitDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "example": 0,
+            "description": "Only with `after_main_sequence` (required there): days to wait after the main sequence ends."
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "SubsequenceTriggerRuleApiDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "lead_status",
+              "replied",
+              "reply_contains",
+              "opened",
+              "clicked",
+              "sequence_finished_no_reply"
+            ],
+            "example": "lead_status",
+            "description": "What makes a lead enter. `lead_status` - its status became one of `statuses` (AI-classified reply or set by you); `replied` - any reply; `reply_contains` - a reply containing one of `phrases`; `opened` / `clicked` - an open / a click (needs tracking on the campaign), timed by `when`; `sequence_finished_no_reply` - the lead got every step of the main sequence and did not reply within `waitDays`. Each kind can be used once."
+          },
+          "statuses": {
+            "type": "array",
+            "example": [
+              "lead_replied_interested",
+              "lead_replied_meeting_request"
+            ],
+            "description": "`lead_status` only (required there): the statuses that make a lead enter.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "lead_replied_interested",
+                "lead_replied_meeting_request",
+                "lead_replied_out_of_office",
+                "lead_replied_wrong_person",
+                "lead_replied_not_interested",
+                "lead_replied_uncategorized",
+                "lead_converted",
+                "lead_lost"
+              ]
+            }
+          },
+          "phrases": {
+            "maxItems": 20,
+            "example": [
+              "pricing",
+              "more info"
+            ],
+            "description": "`reply_contains` only (required there): 1-20 phrases, 2-100 characters each, matched case-insensitively.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "when": {
+            "description": "`opened` and `clicked` only (required there): when the lead enters.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceEngagementTimingApiDto"
+              }
+            ]
+          },
+          "urlContains": {
+            "type": "string",
+            "example": "/pricing",
+            "maxLength": 500,
+            "description": "`clicked` only (optional): count only clicks on links whose URL contains this text."
+          },
+          "waitDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 60,
+            "example": 3,
+            "description": "`sequence_finished_no_reply` only (required there): days to wait for a reply after the last email of the main sequence."
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "SubsequenceFilterApiDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tag",
+              "custom_field",
+              "email_provider",
+              "engagement",
+              "replied",
+              "reached_step"
+            ],
+            "example": "tag",
+            "description": "An extra condition every entering lead must meet (all filters must match). `tag` - lead tags (`op`: `has_any` / `has_none`, `values`); `custom_field` - a custom field (`field`, `op`: `equals` / `contains` / `is_empty` / `is_not_empty`, `value`); `email_provider` - `values` of `google` / `microsoft` / `other`; `engagement` - `op`: `opened_at_least` (with `emails`) / `not_opened` / `clicked` / `not_clicked`; `replied` - `value` true / false; `reached_step` - got at least step `atLeast` of the main sequence."
+          },
+          "op": {
+            "type": "string",
+            "example": "has_any",
+            "description": "Operator, see `kind`."
+          },
+          "values": {
+            "example": [
+              "vip"
+            ],
+            "description": "`tag` (tag names) and `email_provider` (`google` / `microsoft` / `other`).",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "field": {
+            "type": "string",
+            "example": "industry",
+            "description": "`custom_field`: the custom field name."
+          },
+          "value": {
+            "description": "`custom_field` with `equals` / `contains`: the text to compare (required there). `replied`: true or false.",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "emails": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "`engagement` with `opened_at_least`: number of emails opened."
+          },
+          "atLeast": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "`reached_step`: the step number."
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "SubsequenceTriggerApiDto": {
+        "type": "object",
+        "properties": {
+          "any": {
+            "maxItems": 5,
+            "description": "0-5 rules; ANY of them makes a lead enter. `[]` = manual only: leads enter only through `POST /v1/subsequences/{id}/leads` (or the dashboard).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceTriggerRuleApiDto"
+            }
+          },
+          "sources": {
+            "example": [
+              "main"
+            ],
+            "description": "Where the rules listen: `main` (the main sequence of the campaign) and/or ids of OTHER subsequences of the same campaign (e.g. a lead that replies \"Interested\" inside a re-engagement subsequence moves on to a \"book a call\" one). Always required: `[]` when `any` is empty, at least one source otherwise.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filters": {
+            "maxItems": 5,
+            "description": "0-5 filters; a lead enters only if ALL of them match.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceFilterApiDto"
+            }
+          }
+        },
+        "required": [
+          "any",
+          "sources",
+          "filters"
+        ]
+      },
+      "SubsequenceOooWithoutDateApiDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "delay",
+              "skip"
+            ],
+            "example": "delay",
+            "description": "The auto-reply has no return date: start `days` after the auto-reply (`delay`) or do not enroll (`skip`)."
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "example": 7,
+            "description": "`delay` only (required there)."
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "SubsequenceStartApiDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "immediately",
+              "delay",
+              "ooo_return"
+            ],
+            "example": "delay",
+            "description": "When the first email of the subsequence goes out after a lead enters: `immediately`, after a `delay` (`amount` + `unit`, up to 365 days), or `ooo_return` - after the return date found in an out-of-office reply (only with a single `lead_status` rule for `lead_replied_out_of_office`). The first step has no delay of its own - this is it. Emails still go out only inside the sending schedule."
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1,
+            "description": "`delay` only (required there)."
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "minutes",
+              "hours",
+              "days"
+            ],
+            "example": "hours",
+            "description": "`delay` only (required there)."
+          },
+          "offsetDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 30,
+            "example": 1,
+            "description": "`ooo_return` only (required there): days after the return date (0 = on that day)."
+          },
+          "withoutDate": {
+            "description": "`ooo_return` only (required there).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceOooWithoutDateApiDto"
+              }
+            ]
+          },
+          "maxDaysAhead": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 730,
+            "example": 120,
+            "description": "`ooo_return` only (required there): skip a lead that is away longer than this many days; `null` = no limit."
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "SubsequenceDailyLimitApiDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "custom",
+              "unlimited"
+            ],
+            "example": "inherit",
+            "description": "`inherit` - the subsequence's emails count toward the campaign's daily limit and go out first, the campaign's own emails use the rest; `custom` - its own daily limit `value` on top of the campaign's; `unlimited` - only the mailboxes' own daily limits apply."
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "example": 30,
+            "description": "`custom` only (required there)."
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "SubsequenceSendingApiDto": {
+        "type": "object",
+        "properties": {
+          "schedule": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "custom"
+            ],
+            "example": "inherit",
+            "description": "`inherit` - the campaign's sending schedule; `custom` - the subsequence keeps its own schedule (edited in the dashboard)."
+          },
+          "dailyLimit": {
+            "$ref": "#/components/schemas/SubsequenceDailyLimitApiDto"
+          }
+        },
+        "required": [
+          "schedule",
+          "dailyLimit"
+        ]
+      },
+      "SubsequenceSettingsView": {
+        "type": "object",
+        "properties": {
+          "trigger": {
+            "$ref": "#/components/schemas/SubsequenceTriggerApiDto"
+          },
+          "start": {
+            "$ref": "#/components/schemas/SubsequenceStartApiDto"
+          },
+          "sending": {
+            "$ref": "#/components/schemas/SubsequenceSendingApiDto"
+          }
+        },
+        "required": [
+          "trigger",
+          "start",
+          "sending"
+        ]
+      },
+      "SubsequenceCountersView": {
+        "type": "object",
+        "properties": {
+          "entered": {
+            "type": "number",
+            "example": 42,
+            "description": "Leads that ever entered."
+          },
+          "waiting": {
+            "type": "number",
+            "example": 3,
+            "description": "Entered, first email scheduled for later (e.g. after an out-of-office return date)."
+          },
+          "inProgress": {
+            "type": "number",
+            "example": 12,
+            "description": "Currently in the subsequence (entered and not ended)."
+          },
+          "replied": {
+            "type": "number",
+            "example": 9,
+            "description": "Leads that replied to an email of the subsequence."
+          },
+          "positive": {
+            "type": "number",
+            "example": 5,
+            "description": "Leads that replied and whose status in the subsequence is positive now (interested, meeting request, converted) — a subset of replied."
+          },
+          "ended": {
+            "type": "number",
+            "example": 30,
+            "description": "Entries no longer in progress (all emails sent, replied, status changed, removed, moved to another subsequence…): entered = inProgress + ended."
+          }
+        },
+        "required": [
+          "entered",
+          "waiting",
+          "inProgress",
+          "replied",
+          "positive",
+          "ended"
+        ]
+      },
+      "SubsequenceApiDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c"
+          },
+          "campaignId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "a7d4e2f1-08b3-4c65-9e7a-1b2c3d4e5f60",
+            "description": "The campaign this subsequence belongs to."
+          },
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call"
+          },
+          "position": {
+            "type": "integer",
+            "example": 1,
+            "description": "Order among the campaign's subsequences (1 = first): when one event matches several, the lead enters the first."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "paused",
+              "stopped",
+              "completed",
+              "failed"
+            ],
+            "example": "active",
+            "description": "Lifecycle status, same vocabulary as campaigns: `draft` / `paused` = off, `active` = on."
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether it is turned on (`/enable` / `/pause`). A subsequence of a draft campaign stays `draft` while on - it starts with the campaign."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "starts_with_campaign",
+              "active",
+              "paused",
+              "paused_with_campaign",
+              "stopped_campaign_ended",
+              "paused_requires_plan",
+              "cant_start",
+              "waiting_restart"
+            ],
+            "example": "active",
+            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed, was stopped or deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SubsequenceSettingsView"
+          },
+          "sequence": {
+            "description": "The emails of the subsequence - the same shape as a campaign's `sequence`. A step with an empty `subject` replies in the same thread.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CampaignSequenceStepView"
+            }
+          },
+          "counters": {
+            "description": "All-time counters (not limited to a period).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceCountersView"
+              }
+            ]
+          },
+          "nextStartAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the next waiting lead gets its first email; null when nobody is waiting."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-10-28T08:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "campaignId",
+          "name",
+          "position",
+          "status",
+          "enabled",
+          "state",
+          "settings",
+          "sequence",
+          "counters",
+          "nextStartAt",
+          "createdAt"
+        ]
+      },
+      "SubsequenceListApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "The campaign's subsequences in `position` order.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceApiDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "SubsequenceSettingsApiDto": {
+        "type": "object",
+        "properties": {
+          "trigger": {
+            "description": "Who enters. Default: no rules (manual only), listening to `main`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceTriggerApiDto"
+              }
+            ]
+          },
+          "start": {
+            "description": "When the first email goes out after a lead enters. Default: `immediately`.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceStartApiDto"
+              }
+            ]
+          },
+          "sending": {
+            "description": "Schedule and daily limit. Default: inherited from the campaign.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceSendingApiDto"
+              }
+            ]
+          }
+        }
+      },
+      "SubsequenceSequenceVariantApiDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "example": "",
+            "maxLength": 500,
+            "description": "Subject. Leave it EMPTY (\"\") to reply in the same thread as the conversation with the lead (recommended for the first step); a subject of its own starts a new thread. Merge tags as in campaigns (snake_case, e.g. {{first_name}})."
+          },
+          "body": {
+            "type": "string",
+            "example": "<p>Hi {{first_name}}, here is my calendar: …</p>",
+            "description": "HTML body."
+          },
+          "isActive": {
+            "type": "boolean",
+            "example": true,
+            "default": true,
+            "description": "A switched-off variant is kept but not sent. At least one variant of each step must stay on."
+          }
+        },
+        "required": [
+          "subject",
+          "body"
+        ]
+      },
+      "SubsequenceSequenceStepApiDto": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "example": "",
+            "maxLength": 500,
+            "description": "Subject. Leave it EMPTY (\"\") to reply in the same thread as the conversation with the lead (recommended for the first step); a subject of its own starts a new thread. Merge tags as in campaigns (snake_case, e.g. {{first_name}}). Required unless you pass `variants`."
+          },
+          "body": {
+            "type": "string",
+            "example": "<p>Hi {{first_name}}, here is my calendar: …</p>",
+            "description": "HTML body. Required unless you pass `variants`."
+          },
+          "variants": {
+            "minItems": 1,
+            "maxItems": 5,
+            "description": "A/B variants of this step, instead of `subject` + `body` - the same rules as campaign steps (up to 5, lettered A, B, C… in order, leads split evenly between the active ones).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceSequenceVariantApiDto"
+            }
+          },
+          "delayDays": {
+            "type": "integer",
+            "example": 2,
+            "minimum": 0,
+            "maximum": 365,
+            "description": "Days to wait after the previous step. Must be 0 (or omitted) on the first step: when the first email goes out is set by `settings.start`. From step 2 on, `delayDays` + `delayHours` must add up to at least 1 hour."
+          },
+          "delayHours": {
+            "type": "integer",
+            "example": 0,
+            "minimum": 0,
+            "maximum": 23,
+            "description": "Additional hours to wait after the previous step. Must be 0 (or omitted) on the first step."
+          }
+        }
+      },
+      "CreateSubsequenceApiDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call",
+            "maxLength": 255
+          },
+          "settings": {
+            "description": "Trigger, start and sending settings. Each section you pass REPLACES that section as a whole (omitted sections keep their current value; on create, the defaults). Whether the subsequence is on is not a setting - use `/enable` and `/pause`. Every other setting (mailboxes, tracking, unsubscribe link, stop rules, verification skips) is inherited from the campaign and follows its changes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceSettingsApiDto"
+              }
+            ]
+          },
+          "sequence": {
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "The emails of the subsequence, in send order. Omit to add them later with PATCH.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceSequenceStepApiDto"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateSubsequenceApiDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Interested - book a call (v2)",
+            "maxLength": 255
+          },
+          "settings": {
+            "description": "Trigger, start and sending settings. Each section you pass REPLACES that section as a whole (omitted sections keep their current value; on create, the defaults). Whether the subsequence is on is not a setting - use `/enable` and `/pause`. Every other setting (mailboxes, tracking, unsubscribe link, stop rules, verification skips) is inherited from the campaign and follows its changes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SubsequenceSettingsApiDto"
+              }
+            ]
+          },
+          "sequence": {
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "When supplied, REPLACES all emails of the subsequence (same rules as a campaign's `sequence`). A running subsequence's emails cannot be replaced - pause it first (400, nothing is written).",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubsequenceSequenceStepApiDto"
+            }
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "example": 1,
+            "description": "Position among the subsequences of the campaign (1 = first). When one event matches several subsequences, the lead enters the first one."
+          }
+        }
+      },
+      "DeleteSubsequenceApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "success"
+        ]
+      },
+      "EnableSubsequenceApiDto": {
+        "type": "object",
+        "properties": {
+          "enrollExisting": {
+            "type": "boolean",
+            "example": false,
+            "default": false,
+            "description": "Also enroll the leads that ALREADY match the trigger (in the background). A lead going through another subsequence right now is not taken out of it. Default false: only new events count from now on."
+          }
+        }
+      },
+      "SubsequenceLifecycleApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "5b2f3c4d-6e7f-4a81-9b0c-1d2e3f4a5b6c"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "scheduled",
+              "active",
+              "paused",
+              "stopped",
+              "completed",
+              "failed"
+            ],
+            "example": "active"
+          },
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "starts_with_campaign",
+              "active",
+              "paused",
+              "paused_with_campaign",
+              "stopped_campaign_ended",
+              "paused_requires_plan",
+              "cant_start",
+              "waiting_restart"
+            ],
+            "example": "active",
+            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed, was stopped or deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
+          },
+          "enrollingExisting": {
+            "type": "boolean",
+            "example": false,
+            "description": "true when leads that already match the trigger are being enrolled in the background (`enrollExisting: true` on a running campaign)."
+          },
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "enabled",
+          "state",
+          "enrollingExisting",
+          "success"
+        ]
+      },
+      "EnrollSubsequenceStartApiDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "now",
+              "delay",
+              "date"
+            ],
+            "example": "now",
+            "description": "`now` - first email at the next sending window; `delay` - after `days` days; `date` - on `date` (YYYY-MM-DD, at the start of that day's sending window)."
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365,
+            "example": 2,
+            "description": "`delay` only (required there)."
+          },
+          "date": {
+            "type": "string",
+            "example": "2026-11-03",
+            "description": "`date` only (required there): YYYY-MM-DD in the schedule timezone."
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "EnrollSubsequenceLeadsApiDto": {
+        "type": "object",
+        "properties": {
+          "leadIds": {
+            "maxItems": 1000,
+            "description": "Lead ids of the MAIN campaign (`GET /v1/campaigns/{id}/leads`). Pass `leadIds` or `emails`, not both.",
+            "example": [
+              "c9e5b1a3-7f24-4d80-a6b9-2e4f8c0d1a37"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "emails": {
+            "maxItems": 1000,
+            "description": "Emails of leads of the MAIN campaign (case-insensitive). Pass `leadIds` or `emails`, not both.",
+            "example": [
+              "jane@acme.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "start": {
+            "description": "When the first email goes out. Default `{ \"mode\": \"now\" }`. Overrides the subsequence's `settings.start` for these leads.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EnrollSubsequenceStartApiDto"
+              }
+            ]
+          }
+        }
+      },
+      "EnrollSubsequenceLeadsApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "enrolled": {
+            "type": "number",
+            "example": 18,
+            "description": "Leads that entered the subsequence (their remaining main-sequence emails are canceled)."
+          },
+          "skipped": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "not_contacted": 2,
+              "already_enrolled": 1
+            },
+            "description": "Leads that did not enter, by reason: `not_contacted` (never emailed - a subsequence continues a conversation), `already_enrolled` (a lead enters each subsequence once), `suppressed` (unsubscribed, bounced or blacklisted), `company_replied` (a colleague at the same company replied in the campaign or one of its subsequences, and the campaign stops the company on a reply), `lead_removed`, `not_accepting` (the campaign is not active or paused - draft, completed, stopped or deleted -, the subsequence is completed or deleted, or the plan does not include subsequences; a subsequence that is paused or was never turned on still takes leads), `thread_unavailable` (step 1 replies in the same thread but the conversation's thread could not be found). Any other key also means the lead did not enter."
+          },
+          "notFound": {
+            "type": "number",
+            "example": 0,
+            "description": "Requested lead ids / emails that are not leads of the main campaign."
+          }
+        },
+        "required": [
+          "enrolled",
+          "skipped",
+          "notFound"
         ]
       }
     }

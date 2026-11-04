@@ -34,6 +34,7 @@
               "lead-finder",
               "accounts",
               "campaigns",
+              "subsequences",
               "emails",
               "leads",
               "workspace",
@@ -84,6 +85,21 @@
               "PATCH /v1/campaigns/{id}",
               "DELETE /v1/campaigns/{id}",
               "GET /v1/campaigns/{id}/status"
+            ]
+          },
+          {
+            "group": "Subsequences",
+            "openapi": "openapi.json",
+            "pages": [
+              "POST /v1/campaigns/{id}/subsequences",
+              "GET /v1/campaigns/{id}/subsequences",
+              "GET /v1/subsequences/{id}",
+              "PATCH /v1/subsequences/{id}",
+              "DELETE /v1/subsequences/{id}",
+              "POST /v1/subsequences/{id}/enable",
+              "POST /v1/subsequences/{id}/pause",
+              "POST /v1/subsequences/{id}/resume",
+              "POST /v1/subsequences/{id}/leads"
             ]
           },
           {

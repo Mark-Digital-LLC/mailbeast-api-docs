@@ -226,6 +226,19 @@ Reference tab) - the MCP server adds no permissions of its own.
 | `resume_campaign` | Resumes a paused campaign - sending continues on its schedule | **Sends email** |
 | `delete_campaign` | Permanently deletes a campaign and stops its sending | Write |
 
+### Subsequences
+
+Follow-up flows of a campaign that start on a lead status, a reply, an open, a click
+or a finished sequence - from the same mailbox, in the same thread. See
+[Subsequences](/subsequences).
+
+| Tool | What it does | Access |
+| --- | --- | --- |
+| `list_subsequences` | A campaign's subsequences: trigger, start, emails, whether each is on, counters | Read |
+| `create_subsequence` | Creates a subsequence, turned **off** (it is turned on in the dashboard) | Write |
+| `update_subsequence` | Changes the name, order, trigger / start / sending settings or emails | Write |
+| `enroll_in_subsequence` | Moves leads of the campaign (by id or email) into a subsequence; it then emails them | **Sends email** |
+
 ### Leads
 
 | Tool | What it does | Access |
