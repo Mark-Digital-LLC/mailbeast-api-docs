@@ -4242,7 +4242,7 @@
         ]
       },
       "patch": {
-        "description": "Update a mailbox’s settings and limits, and rotate its SMTP/IMAP credentials. The email address cannot be changed. Including any `smtp*` or `imap*` field rotates the credentials and re-runs verification.\n\nRequires one of the following scopes: `accounts:write`, `accounts:all`, `all:all`.",
+        "description": "Update a mailbox’s settings and limits, and rotate its SMTP/IMAP credentials. The email address cannot be changed. Including any `smtp*` or `imap*` field rotates the credentials and re-runs verification: the mailbox reports `checking` until the result is in. A paused mailbox stays `inactive` until you `resume` it. Sending `imapAllowInvalidCert` with its current value changes nothing.\n\nRequires one of the following scopes: `accounts:write`, `accounts:all`, `all:all`.",
         "operationId": "accounts_update",
         "parameters": [
           {
@@ -12717,6 +12717,7 @@
           },
           "smtpHost": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 255,
             "example": "smtp.acme.com"
           },
@@ -12733,11 +12734,13 @@
           },
           "smtpPassword": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 1024,
             "example": "your-password"
           },
           "imapHost": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 255,
             "example": "imap.acme.com"
           },
@@ -12754,6 +12757,7 @@
           },
           "imapPassword": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 1024,
             "example": "your-password"
           },

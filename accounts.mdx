@@ -119,7 +119,11 @@ passes (expect `inactive` / `checking` briefly right after connecting).
 
 `PATCH /v1/accounts/{id}` updates settings/limits **and** rotates credentials in
 one call. `emailAddress` is immutable. Any `smtp*` / `imap*` field present rotates
-the credentials and re-runs verification.
+the credentials and re-runs verification: the mailbox reports `status: "checking"`
+until the result is in. A paused mailbox stays `inactive` until you resume it.
+Sending `imapAllowInvalidCert` with its current value changes nothing. A host, port
+or password sent empty or as `null` is rejected with `400`; leave out what you are
+not changing.
 
 ```bash
 # raise the daily cap and rotate the SMTP password (triggers re-verification)
