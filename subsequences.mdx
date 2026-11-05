@@ -221,7 +221,7 @@ dashboard first. A deleted campaign answers `404`.
 | `active` | on and sending |
 | `paused` | paused by you |
 | `paused_with_campaign` | on, but the campaign is paused - nothing is sent until it resumes |
-| `stopped_campaign_ended` | the campaign completed, was stopped or deleted |
+| `stopped_campaign_ended` | the campaign completed or was deleted |
 | `paused_requires_plan` | the plan does not include subsequences |
 | `cant_start` | on, but it cannot start: it has no email, or an email is missing content |
 | `waiting_restart` | on, waiting for the completed campaign to be restarted |
@@ -265,7 +265,7 @@ or emails are not leads of the campaign (`notFound`):
 | `suppressed` | unsubscribed, bounced or blacklisted |
 | `company_replied` | a colleague at the same company replied in this campaign or one of its subsequences, and the campaign stops the company on a reply |
 | `lead_removed` | the lead was removed from the campaign |
-| `not_accepting` | the campaign is not active or paused (draft, completed, stopped or deleted), the subsequence is completed or deleted, or your plan does not include subsequences. A subsequence that is paused or was never turned on still takes leads |
+| `not_accepting` | the campaign is not active or paused (draft, completed or deleted), the subsequence is completed or deleted, or your plan does not include subsequences. A subsequence that is paused or was never turned on still takes leads |
 | `thread_unavailable` | step 1 replies in the same thread (empty subject), but the conversation's thread could not be found - give step 1 a subject of its own |
 
 Treat any other key in `skipped` the same way - the lead did not enter (for example,
@@ -360,7 +360,7 @@ Errors use the usual envelope. Codes specific to subsequences:
 | `409` | `campaign_busy` | the campaign is being changed right now - retry in a few seconds (`Retry-After` is set) |
 | `409` | `campaign_state_changed` | the campaign changed (paused, completed, deleted) while the request ran - read it again |
 | `409` | `parent_completed` | `/enable` on a completed campaign - restart it in the dashboard first |
-| `409` | `family_ended` | the campaign ended (stopped, or deleted while the request ran) |
+| `409` | `family_ended` | the campaign or the subsequence was deleted, or the campaign finished, while the request ran |
 | `409` | `subsequence_limit_reached` | the campaign already has as many subsequences as it can - delete one to add another |
 
 ## MCP

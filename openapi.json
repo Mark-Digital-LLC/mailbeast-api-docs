@@ -1858,7 +1858,6 @@
                 "scheduled",
                 "active",
                 "paused",
-                "stopped",
                 "completed",
                 "failed"
               ]
@@ -8380,7 +8379,7 @@
     },
     "/v1/subsequences/{id}/enable": {
       "post": {
-        "description": "Turn a subsequence on: leads that match its trigger from now on enter it and get its emails (real email). With `enrollExisting: true` the leads that already match enter too. On a draft campaign it starts together with the campaign. A completed campaign must be restarted in the dashboard first (`409 parent_completed`); a stopped or deleted one cannot get new subsequence leads (`409 family_ended`). Needs at least one email (400). Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
+        "description": "Turn a subsequence on: leads that match its trigger from now on enter it and get its emails (real email). With `enrollExisting: true` the leads that already match enter too. On a draft campaign it starts together with the campaign. A completed campaign must be restarted in the dashboard first (`409 parent_completed`); if the campaign or the subsequence is deleted, or the campaign finishes, while the request runs - `409 family_ended`. Needs at least one email (400). Needs a plan with subsequences (Pro+ and above) - otherwise `403` with code `subsequences_plan_required`. `409 campaign_busy` = the campaign is being changed right now; retry in a few seconds.\n\nRequires one of the following scopes: `campaigns:lifecycle`, `campaigns:all`, `all:all`.",
         "operationId": "subsequences_enable",
         "parameters": [
           {
@@ -10883,7 +10882,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -10916,7 +10914,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -11066,7 +11063,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -11209,7 +11205,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -11241,7 +11236,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -14232,7 +14226,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -14952,7 +14945,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -14978,7 +14970,7 @@
               "waiting_restart"
             ],
             "example": "active",
-            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed, was stopped or deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
+            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed or was deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
           },
           "settings": {
             "$ref": "#/components/schemas/SubsequenceSettingsView"
@@ -15236,7 +15228,6 @@
               "scheduled",
               "active",
               "paused",
-              "stopped",
               "completed",
               "failed"
             ],
@@ -15260,7 +15251,7 @@
               "waiting_restart"
             ],
             "example": "active",
-            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed, was stopped or deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
+            "description": "Why it sends or not, in one word: `draft` - off; `starts_with_campaign` - on, starts when the draft campaign starts; `active` - on and sending; `paused` - paused by you; `paused_with_campaign` - on, but the campaign is paused; `stopped_campaign_ended` - the campaign completed or was deleted; `paused_requires_plan` - the plan does not include subsequences; `cant_start` - on, but it cannot start: it has no email, or an email is missing content; `waiting_restart` - on, waiting for the completed campaign to be restarted."
           },
           "enrollingExisting": {
             "type": "boolean",
@@ -15364,7 +15355,7 @@
               "not_contacted": 2,
               "already_enrolled": 1
             },
-            "description": "Leads that did not enter, by reason: `not_contacted` (never emailed - a subsequence continues a conversation), `already_enrolled` (a lead enters each subsequence once), `suppressed` (unsubscribed, bounced or blacklisted), `company_replied` (a colleague at the same company replied in the campaign or one of its subsequences, and the campaign stops the company on a reply), `lead_removed`, `not_accepting` (the campaign is not active or paused - draft, completed, stopped or deleted -, the subsequence is completed or deleted, or the plan does not include subsequences; a subsequence that is paused or was never turned on still takes leads), `thread_unavailable` (step 1 replies in the same thread but the conversation's thread could not be found). Any other key also means the lead did not enter."
+            "description": "Leads that did not enter, by reason: `not_contacted` (never emailed - a subsequence continues a conversation), `already_enrolled` (a lead enters each subsequence once), `suppressed` (unsubscribed, bounced or blacklisted), `company_replied` (a colleague at the same company replied in the campaign or one of its subsequences, and the campaign stops the company on a reply), `lead_removed`, `not_accepting` (the campaign is not active or paused - draft, completed or deleted -, the subsequence is completed or deleted, or the plan does not include subsequences; a subsequence that is paused or was never turned on still takes leads), `thread_unavailable` (step 1 replies in the same thread but the conversation's thread could not be found). Any other key also means the lead did not enter."
           },
           "notFound": {
             "type": "number",

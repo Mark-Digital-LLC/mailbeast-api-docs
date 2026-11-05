@@ -47,7 +47,7 @@ Behind the scenes this is standard OAuth 2.1 with PKCE: the app discovers our si
 from the server's `401` response and its
 [metadata](https://mcp.mailbeast.ai/.well-known/oauth-protected-resource/mcp). Each
 approved connection appears as an API key named **"&lt;App&gt; (MCP)"** - for example
-"Claude (MCP)" - in [Settings → API Keys](https://app.mailbeast.ai/settings/api).
+"Claude (MCP)" - in [Settings → API](https://app.mailbeast.ai/settings/api).
 
 ## Connect your app
 
@@ -134,7 +134,7 @@ To change permissions, connect again with the other choice and delete the old
 ## Disconnect
 
 - **In MailBeast** - delete the app's key ("Claude (MCP)", "ChatGPT (MCP)", …) in
-  [Settings → API Keys](https://app.mailbeast.ai/settings/api). Access ends
+  [Settings → API](https://app.mailbeast.ai/settings/api). Access ends
   immediately: the app's next call is refused and it has to sign in again.
 - **In the app** - remove the connector (Claude: **Customize → Connectors → … →
   Remove**; ChatGPT: remove the plugin in **Plugins**; Claude Code: `claude mcp remove
@@ -146,7 +146,7 @@ there to revoke access for sure.
 ## Connect with an API key
 
 For scripts, CI, and clients without OAuth sign-in. Create a key in
-[Settings → API Keys](https://app.mailbeast.ai/settings/api) - a **separate key for
+[Settings → API](https://app.mailbeast.ai/settings/api) - a **separate key for
 MCP**, with only the scopes you need (`all:read` for read-only, `all:all` for
 everything) - and send it as a header:
 
